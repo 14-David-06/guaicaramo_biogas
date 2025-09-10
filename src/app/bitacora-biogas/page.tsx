@@ -5,13 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-
-interface User {
-  id: string;
-  nombre: string;
-  cargo: string;
-  cedula: string;
-}
+import { useAuth, User } from '@/hooks/useAuth';
 
 interface RegistroBitacora {
   id: string;
@@ -38,12 +32,7 @@ interface NuevoBitacora {
 
 export default function BitacoraBiogas() {
   const router = useRouter();
-  const [loggedInUser] = useState<User | null>({
-    id: '1',
-    nombre: 'Usuario Demo',
-    cargo: 'Operador',
-    cedula: '12345678'
-  });
+  const { user: loggedInUser, isLoading, logout } = useAuth();
 
   const [vista, setVista] = useState<'lista' | 'nuevo'>('lista');
   const [filtros, setFiltros] = useState({
@@ -104,8 +93,38 @@ export default function BitacoraBiogas() {
     equipoAfectado: ''
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [mensaje, setMensaje] = useState('');
+
+  // Mostrar loading mientras se verifica la sesión
+  if (isLoading) {
+    return (
+      <div className="relative min-h-screen flex items-center justify-center">
+        <div className="fixed inset-0 w-full h-full z-0">
+          <Image
+            src="/DSC_3884-Mejorado-NR_ghtz72.jpg"
+            alt="Background Biogas"
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-black/50"></div>
+        </div>
+        <div className="relative z-10 backdrop-blur-lg bg-white/10 rounded-2xl p-8 border border-white/20 shadow-2xl">
+          <div className="flex items-center justify-center space-x-3">
+            <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-white text-lg font-medium">Cargando...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirigir si no está autenticado
+  if (!loggedInUser) {
+    router.push('/');
+    return null;
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -125,7 +144,7 @@ export default function BitacoraBiogas() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
       // Crear nuevo registro
@@ -160,7 +179,7 @@ export default function BitacoraBiogas() {
       console.error('Error al guardar registro:', error);
       setMensaje('Error al guardar el registro. Intenta nuevamente.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -221,7 +240,7 @@ export default function BitacoraBiogas() {
       <Navbar 
         onLoginClick={() => {}} 
         loggedInUser={loggedInUser}
-        onLogout={() => router.push('/')}
+        onLogout={() => logout()}
       />
 
       {/* Main Content */}
@@ -544,10 +563,10 @@ export default function BitacoraBiogas() {
                   
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                     className="flex-1 px-6 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isLoading ? (
+                    {isSubmitting ? (
                       <div className="flex items-center justify-center">
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                         Guardando...

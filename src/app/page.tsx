@@ -5,22 +5,45 @@ import Image from 'next/image';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Login from '@/components/Login';
-
-interface User {
-  id: string;
-  nombre: string;
-  cargo: string;
-  cedula: string;
-}
+import SessionAlert from '@/components/SessionAlert';
+import { useAuth, User } from '@/hooks/useAuth';
 
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+  const { user: loggedInUser, isLoading, login, logout, isSessionExpiringSoon } = useAuth();
 
   const handleLoginSuccess = (user: User) => {
-    setLoggedInUser(user);
+    login(user);
     setShowLogin(false);
   };
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  // Mostrar loading mientras se verifica la sesión
+  if (isLoading) {
+    return (
+      <div className="relative min-h-screen flex items-center justify-center">
+        <div className="fixed inset-0 w-full h-full z-0">
+          <Image
+            src="/DSC_3884-Mejorado-NR_ghtz72.jpg"
+            alt="Background Biogas"
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-black/50"></div>
+        </div>
+        <div className="relative z-10 backdrop-blur-lg bg-white/10 rounded-2xl p-8 border border-white/20 shadow-2xl">
+          <div className="flex items-center justify-center space-x-3">
+            <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-white text-lg font-medium">Verificando sesión...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (showLogin) {
     return <Login onBack={() => setShowLogin(false)} onLoginSuccess={handleLoginSuccess} />;
@@ -41,11 +64,14 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40"></div>
         </div>
 
+        {/* Alerta de sesión */}
+        <SessionAlert />
+
         {/* Navigation */}
         <Navbar 
           onLoginClick={() => setShowLogin(true)} 
           loggedInUser={loggedInUser}
-          onLogout={() => setLoggedInUser(null)}
+          onLogout={handleLogout}
         />
 
         {/* Main Dashboard Content */}

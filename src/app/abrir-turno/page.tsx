@@ -5,13 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-
-interface User {
-  id: string;
-  nombre: string;
-  cargo: string;
-  cedula: string;
-}
+import { useAuth, User } from '@/hooks/useAuth';
 
 interface TurnoData {
   fecha: string;
@@ -23,12 +17,7 @@ interface TurnoData {
 
 export default function AbrirTurno() {
   const router = useRouter();
-  const [loggedInUser] = useState<User | null>({
-    id: '1',
-    nombre: 'Usuario Demo',
-    cargo: 'Operador',
-    cedula: '12345678'
-  });
+  const { user: loggedInUser, isLoading, logout } = useAuth();
 
   const [formData, setFormData] = useState<TurnoData>({
     fecha: new Date().toISOString().split('T')[0],
@@ -38,8 +27,42 @@ export default function AbrirTurno() {
     observaciones: ''
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [mensaje, setMensaje] = useState('');
+
+  // Redirigir si no está autenticado
+  if (isLoading) {
+    return (
+      <div className="relative min-h-screen flex items-center justify-center">
+        <div className="fixed inset-0 w-full h-full z-0">
+          <Image
+            src="/DSC_3884-Mejorado-NR_ghtz72.jpg"
+            alt="Background Biogas"
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 bg-black/50"></div>
+        </div>
+        <div className="relative z-10 backdrop-blur-lg bg-white/10 rounded-2xl p-8 border border-white/20 shadow-2xl">
+          <div className="flex items-center justify-center space-x-3">
+            <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-white text-lg font-medium">Cargando...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loggedInUser) {
+    router.push('/');
+    return null;
+  }
+
+  // Actualizar operador cuando el usuario cambie
+  if (formData.operador !== loggedInUser.nombre) {
+    setFormData(prev => ({ ...prev, operador: loggedInUser.nombre }));
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -51,7 +74,7 @@ export default function AbrirTurno() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     // Simulación de envío de datos
     try {
@@ -76,7 +99,7 @@ export default function AbrirTurno() {
       console.error('Error al abrir turno:', error);
       setMensaje('Error al abrir el turno. Intenta nuevamente.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -98,7 +121,7 @@ export default function AbrirTurno() {
       <Navbar 
         onLoginClick={() => {}} 
         loggedInUser={loggedInUser}
-        onLogout={() => router.push('/')}
+        onLogout={() => logout()}
       />
 
       {/* Main Content */}
@@ -232,10 +255,10 @@ export default function AbrirTurno() {
                 
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isSubmitting}
                   className="flex-1 px-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? (
+                  {isSubmitting ? (
                     <div className="flex items-center justify-center">
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                       Abriendo turno...

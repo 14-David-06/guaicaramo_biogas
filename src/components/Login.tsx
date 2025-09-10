@@ -2,13 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-
-interface User {
-  id: string;
-  nombre: string;
-  cargo: string;
-  cedula: string;
-}
+import { User } from '@/hooks/useAuth';
 
 interface LoginProps {
   onBack: () => void;
