@@ -10,12 +10,12 @@ export default function Footer() {
           <div className="md:col-span-2">
             <div className="flex items-center mb-6">
               <Image
-                src="/logo-guaicaramo.png"
-                alt="Logo Guaicaramo Biogas"
-                width={120}
-                height={80}
-                className="sm:w-[150px] sm:h-[100px] lg:w-[180px] lg:h-[120px] mr-4"
-              />
+                              src="/logo-guaicaramo.png"
+                              alt="Logo Guaicaramo - Ir al inicio"
+                              width={268}
+                              height={118}
+                              className="w-[134px] h-[59px] sm:w-[268px] sm:h-[118px] mr-2 sm:mr-3"
+                            />
             </div>
             <p className="text-gray-400 mb-6 max-w-md leading-relaxed">
               Plataforma colaborativa para la gestión y monitoreo de sistemas de biogás. 

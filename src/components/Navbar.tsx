@@ -25,22 +25,27 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
         {/* Logo y nombre */}
         <div className="flex items-center space-x-2 sm:space-x-4">
           <div className="flex items-center">
-            <Image
-              src="/logo-guaicaramo.png"
-              alt="Logo Guaicaramo"
-              width={268}
-              height={118}
-              className="sm:w-[150px] sm:h-[100px] mr-2 sm:mr-3"
-            />
+            <button
+              onClick={() => window.location.href = '/'}
+              className="hover:opacity-80 transition-opacity duration-300 cursor-pointer"
+            >
+              <Image
+                src="/logo-guaicaramo.png"
+                alt="Logo Guaicaramo - Ir al inicio"
+                width={268}
+                height={118}
+                className="w-[134px] h-[59px] sm:w-[268px] sm:h-[118px] mr-2 sm:mr-3"
+              />
+            </button>
           </div>
           <div className="flex items-center">
             <Image
-              src="/logo.png"
-              alt="Logo Sirius"
-              width={100}
-              height={80}
-              className="sm:w-[130px] sm:h-[100px] mr-2 sm:mr-3"
-            />
+                src="/logo.png"
+                alt="Logo Guaicaramo - Ir al inicio"
+                width={268}
+                height={118}
+                className="w-[134px] h-[59px] sm:w-[200px] sm:h-[118px] mr-2 sm:mr-3"
+              />
           </div>
           
         </div>
