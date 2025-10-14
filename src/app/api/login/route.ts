@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
 import bcrypt from 'bcryptjs';
 
-const base = new Airtable({ apiKey: process.env.BIOGAS_BASE_API }).base('app7svOXwQT1wqUv5');
+// Usar las nuevas variables de entorno configuradas
+const AIRTABLE_API_KEY = process.env.NEXT_PUBLIC_AIRTABLE_API_TOKEN || process.env.AIRTABLE_API_TOKEN;
+const AIRTABLE_BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID;
+const EQUIPO_BIOGAS_TABLE_ID = process.env.NEXT_PUBLIC_EQUIPO_BIOGAS_TABLE_ID;
+
+if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID || !EQUIPO_BIOGAS_TABLE_ID) {
+  throw new Error('Missing Airtable configuration. Check environment variables.');
+}
+
+const base = new Airtable({ apiKey: AIRTABLE_API_KEY }).base(AIRTABLE_BASE_ID);
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'check_cedula') {
       // Check if cedula exists
-      const records = await base('Equipo_BioGas')
+      const records = await base(EQUIPO_BIOGAS_TABLE_ID!)
         .select({
           filterByFormula: `{Cedula} = '${cedula}'`,
           maxRecords: 1
@@ -36,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     } else if (action === 'set_password') {
       // Set new password
-      const records = await base('Equipo_BioGas')
+      const records = await base(EQUIPO_BIOGAS_TABLE_ID!)
         .select({
           filterByFormula: `{Cedula} = '${cedula}'`,
           maxRecords: 1
@@ -55,7 +64,7 @@ export async function POST(request: NextRequest) {
       const salt = await bcrypt.genSalt(10);
       const hash = await bcrypt.hash(password, salt);
 
-      await base('Equipo_BioGas').update(record.id, {
+      await base(EQUIPO_BIOGAS_TABLE_ID!).update(record.id, {
         Hash: hash,
         Salt: salt
       });
@@ -64,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     } else if (action === 'login') {
       // Login with password
-      const records = await base('Equipo_BioGas')
+      const records = await base(EQUIPO_BIOGAS_TABLE_ID!)
         .select({
           filterByFormula: `{Cedula} = '${cedula}'`,
           maxRecords: 1

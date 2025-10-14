@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { useTurnoStatus } from "@/hooks/useTurnoStatus";
 
 interface User {
   id: string;
@@ -33,6 +34,7 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const turnoStatus = useTurnoStatus();
 
   useEffect(() => {
     setMounted(true);
@@ -256,6 +258,14 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
 
           {/* User Section */}
           <div className="flex items-center space-x-4">
+            {/* Indicador de Turno Activo */}
+            {loggedInUser && turnoStatus.hayTurnoActivo && turnoStatus.esElOperadorDelTurno && (
+              <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-400/30">
+                <div className="w-2 h-2 rounded-full animate-pulse bg-emerald-400"></div>
+                <span>En Turno</span>
+              </div>
+            )}
+
             {loggedInUser ? (
               <>
                 {/* User Menu */}

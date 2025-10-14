@@ -10,7 +10,7 @@ import { useAuth, User } from '@/hooks/useAuth';
 
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
-  const { user: loggedInUser, isLoading, login, logout, isSessionExpiringSoon } = useAuth();
+  const { user: loggedInUser, isLoading, login, logout } = useAuth();
 
   const handleLoginSuccess = (user: User) => {
     login(user);

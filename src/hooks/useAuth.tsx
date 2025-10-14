@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 
 export interface User {
   id: string;
@@ -19,6 +20,7 @@ const AUTH_STORAGE_KEY = 'biogas_auth_session';
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 horas en milisegundos
 
 export const useAuth = () => {
+  const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     isLoading: true,
@@ -86,10 +88,14 @@ export const useAuth = () => {
         isLoading: false,
         isAuthenticated: false,
       });
+      
+      // Redireccionar al landing page después del logout
+      console.log('🚪 Cerrando sesión y redirigiendo al landing page...');
+      router.push('/');
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
     }
-  }, []);
+  }, [router]);
 
   // Función para login
   const login = useCallback((user: User) => {
@@ -115,7 +121,7 @@ export const useAuth = () => {
       
       // Retorna true si la sesión expira en menos de 1 hora
       return timeUntilExpiry < (60 * 60 * 1000);
-    } catch (error) {
+    } catch {
       return false;
     }
   }, []);

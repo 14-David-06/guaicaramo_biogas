@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import TurnoGuard from '@/components/TurnoGuard';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function DashboardPage() {
   const { user: loggedInUser, logout } = useAuth();
-  const [showLogin, setShowLogin] = useState(false);
 
   if (!loggedInUser) {
     return (
@@ -21,14 +20,15 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
-      <Navbar 
-        onLoginClick={() => setShowLogin(true)} 
-        loggedInUser={loggedInUser}
-        onLogout={logout}
-      />
-      
-      <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
+    <TurnoGuard>
+      <div className="min-h-screen bg-gray-900 flex flex-col">
+        <Navbar 
+          onLoginClick={() => {}} 
+          loggedInUser={loggedInUser}
+          onLogout={logout}
+        />
+        
+        <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
         <div className="max-w-7xl mx-auto py-12">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-white mb-4">Dashboard Principal</h1>
@@ -157,6 +157,7 @@ export default function DashboardPage() {
       </main>
 
       <Footer />
-    </div>
+      </div>
+    </TurnoGuard>
   );
 }
