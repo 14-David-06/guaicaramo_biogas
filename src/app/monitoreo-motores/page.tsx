@@ -6,7 +6,7 @@ import TurnoGuard from '@/components/TurnoGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { useFormPersistence } from '@/hooks/useFormPersistence';
-import { airtableService, Motor, EstadoMotor } from '@/utils/airtable';
+import { airtableService, Motor, EstadoMotor, MonitoreoMotor } from '@/utils/airtable';
 import { useState, useEffect } from 'react';
 
 interface MotorConEstado {
@@ -31,6 +31,14 @@ interface ProtocoloModal {
   onCancel: () => void;
 }
 
+interface MonitoreoModal {
+  isOpen: boolean;
+  motorId: string;
+  nombreMotor: string;
+  onSubmit: (datosMonitoreo: Record<string, number>) => void;
+  onCancel: () => void;
+}
+
 export default function MonitoreoMotoresPage() {
   const { user: loggedInUser, logout } = useAuth();
   const [motoresConEstado, setMotoresConEstado] = useState<MotorConEstado[]>([]);
@@ -47,6 +55,14 @@ export default function MonitoreoMotoresPage() {
   });
 
   const [modalProtocolo, setModalProtocolo] = useState<ProtocoloModal>({
+    isOpen: false,
+    motorId: '',
+    nombreMotor: '',
+    onSubmit: () => {},
+    onCancel: () => {}
+  });
+
+  const [modalMonitoreo, setModalMonitoreo] = useState<MonitoreoModal>({
     isOpen: false,
     motorId: '',
     nombreMotor: '',
@@ -159,6 +175,53 @@ export default function MonitoreoMotoresPage() {
     } catch (error) {
       console.error('Error en el proceso de encendido:', error);
       alert(`❌ Error en el proceso de encendido. Intenta nuevamente.`);
+    } finally {
+      setProcesandoMotor(null);
+    }
+  };
+
+  const abrirModalMonitoreo = (motorId: string, nombreMotor: string) => {
+    setModalMonitoreo({
+      isOpen: true,
+      motorId,
+      nombreMotor,
+      onSubmit: (datosMonitoreo) => registrarDatosMotor(motorId, nombreMotor, datosMonitoreo),
+      onCancel: () => setModalMonitoreo(prev => ({ ...prev, isOpen: false }))
+    });
+  };
+
+  const registrarDatosMotor = async (motorId: string, nombreMotor: string, datosMonitoreo: Record<string, number>) => {
+    // Cerrar modal de monitoreo
+    setModalMonitoreo(prev => ({ ...prev, isOpen: false }));
+
+    try {
+      setProcesandoMotor(motorId);
+      
+      // Usar la nueva función que actualiza el registro anterior y crea uno nuevo
+      const resultado = await airtableService.registrarNuevoMonitoreo(
+        motorId, 
+        loggedInUser!.nombre, 
+        datosMonitoreo as {
+          'Horometro Inicial': number;
+          'Arranques Inicio': number;
+          'M3 de Inicio': number;
+          'Kw de Inicio': number;
+        }
+      );
+
+      // Mostrar mensaje de éxito detallado
+      if (resultado.registroActualizado) {
+        alert(`✅ ${nombreMotor} - Datos registrados exitosamente:\n• Registro anterior actualizado con valores finales\n• Nuevo registro creado con valores iniciales`);
+      } else {
+        alert(`✅ ${nombreMotor} - Primer registro de monitoreo creado exitosamente`);
+      }
+
+      // Recargar datos para mostrar el cambio
+      await cargarDatosMotores();
+      
+    } catch (error) {
+      console.error('Error al registrar datos del motor:', error);
+      alert(`❌ Error al registrar datos del motor. Intenta nuevamente.`);
     } finally {
       setProcesandoMotor(null);
     }
@@ -351,26 +414,56 @@ export default function MonitoreoMotoresPage() {
       }
     };
 
-    const protocoloFields = [
-      { key: 'Elementos de Protección Personal disponibles', label: '¿Tiene disponibles los elementos de protección personal?' },
-      { key: 'Elementos de Protección Personal en buen estado', label: '¿Están en buen estado los elementos?' },
-      { key: 'Aceite al 50% (mirilla)', label: '¿Mirilla de aceite está al 50%?' },
-      { key: 'Presión refrigerante 1.5 bar', label: '¿Manómetro de presión refrigerante marca 1.5 bar?' },
-      { key: 'CH4 > 50%', label: '¿CH4 por encima del 50%?' },
-      { key: 'O2 < 3%', label: '¿O2 menor al 3%?' },
-      { key: 'H2S < 300ppm', label: '¿H2S menor a 300ppm?' },
-      { key: 'Mangueras en buen estado', label: '¿Mangueras en buen estado y sin fugas?' },
-      { key: 'Válvulas de gas abiertas', label: '¿Todas las válvulas están abiertas?' },
-      { key: 'Ventiladores encendidos', label: '¿Ventiladores funcionando correctamente?' },
-      { key: 'Equipos Biofiltro funcionando', label: '¿Chiller, bombas Kubao y soplador funcionando correctamente?' },
-      { key: 'Encendido correcto', label: '¿Se realizó la secuencia de encendido correctamente?' },
-      { key: 'Planilla actualizada', label: '¿Registro de planilla actualizado?' },
-      { key: 'Temperatura refrigerante 80-90°C', label: '¿Temperatura del refrigerante entre 80°C - 90°C?' },
-      { key: 'Presión aceite 3.5 bar', label: '¿Presión del aceite 3,5 bar?' },
-      { key: 'Carga trabajo < 1000kW', label: '¿Carga de trabajo menor a 1000 kW?' },
-      { key: 'Horómetro inicial registrado', label: '¿Horómetro inicial registrado?' },
-      { key: 'Composición de biogás controlada', label: '¿Composición de biogás controlada?' },
-      { key: 'Lavado de radiador (si aplica)', label: '¿Se lavó el radiador si se operó más de 10 horas?' }
+    const protocoloGroups = [
+      {
+        title: "🛡️ Seguridad",
+        fields: [
+          { key: 'Elementos de Protección Personal disponibles', label: 'EPP disponibles' },
+          { key: 'Elementos de Protección Personal en buen estado', label: 'EPP en buen estado' }
+        ]
+      },
+      {
+        title: "🔧 Niveles",
+        fields: [
+          { key: 'Aceite al 50% (mirilla)', label: 'Aceite al 50%' },
+          { key: 'Presión refrigerante 1.5 bar', label: 'Presión refrigerante 1.5 bar' }
+        ]
+      },
+      {
+        title: "🌬️ Gases", 
+        fields: [
+          { key: 'CH4 > 50%', label: 'CH4 > 50%' },
+          { key: 'O2 < 3%', label: 'O2 < 3%' },
+          { key: 'H2S < 300ppm', label: 'H2S < 300ppm' }
+        ]
+      },
+      {
+        title: "🔩 Mecánica",
+        fields: [
+          { key: 'Mangueras en buen estado', label: 'Mangueras OK' },
+          { key: 'Válvulas de gas abiertas', label: 'Válvulas abiertas' },
+          { key: 'Ventiladores encendidos', label: 'Ventiladores OK' }
+        ]
+      },
+      {
+        title: "⚙️ Equipos",
+        fields: [
+          { key: 'Equipos Biofiltro funcionando', label: 'Biofiltro OK' },
+          { key: 'Encendido correcto', label: 'Secuencia encendido' },
+          { key: 'Planilla actualizada', label: 'Planilla actualizada' }
+        ]
+      },
+      {
+        title: "📊 Operación",
+        fields: [
+          { key: 'Temperatura refrigerante 80-90°C', label: 'Temp. 80-90°C' },
+          { key: 'Presión aceite 3.5 bar', label: 'Presión aceite 3.5 bar' },
+          { key: 'Carga trabajo < 1000kW', label: 'Carga < 1000kW' },
+          { key: 'Horómetro inicial registrado', label: 'Horómetro registrado' },
+          { key: 'Composición de biogás controlada', label: 'Biogás controlado' },
+          { key: 'Lavado de radiador (si aplica)', label: 'Radiador lavado (si aplica)' }
+        ]
+      }
     ];
 
     return (
@@ -397,23 +490,46 @@ export default function MonitoreoMotoresPage() {
           </div>
 
           {/* Formulario */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="max-h-[50vh] overflow-y-auto space-y-4 pr-2">
-              {protocoloFields.map((field) => (
-                <div key={field.key} className="bg-gray-800/30 rounded-lg p-4">
-                  <label className="block text-white text-sm font-medium mb-2">
-                    {field.label}
-                  </label>
-                  <select
-                    value={formData[field.key as keyof typeof formData]}
-                    onChange={(e) => handleChange(field.key, e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="Sí">Sí</option>
-                    <option value="No">No</option>
-                  </select>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="max-h-[50vh] overflow-y-auto space-y-6 pr-2">
+              {protocoloGroups.map((group) => (
+                <div key={group.title} className="bg-gray-800/30 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
+                    {group.title}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {group.fields.map((field) => (
+                      <div key={field.key} className="space-y-2">
+                        <label className="block text-gray-300 text-sm font-medium">
+                          {field.label}
+                        </label>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleChange(field.key, 'Sí')}
+                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                              formData[field.key as keyof typeof formData] === 'Sí'
+                                ? 'bg-green-600 text-white border-2 border-green-400'
+                                : 'bg-gray-700 text-gray-300 border-2 border-gray-600 hover:border-green-400'
+                            }`}
+                          >
+                            ✅ Sí
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleChange(field.key, 'No')}
+                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                              formData[field.key as keyof typeof formData] === 'No'
+                                ? 'bg-red-600 text-white border-2 border-red-400'
+                                : 'bg-gray-700 text-gray-300 border-2 border-gray-600 hover:border-red-400'
+                            }`}
+                          >
+                            ❌ No
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
               
@@ -496,6 +612,108 @@ export default function MonitoreoMotoresPage() {
               >
                 <span>▶️</span>
                 <span>Encender Motor</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Componente Modal de Monitoreo de Motor
+  const ModalMonitoreo = () => {
+    const initialData = {
+      'Horometro Inicial': '',
+      'Arranques Inicio': '',
+      'M3 de Inicio': '',
+      'Kw de Inicio': ''
+    };
+
+    const [datosMonitoreo, setDatosMonitoreo, clearDatos] = useFormPersistence(
+      `monitoreo-${modalMonitoreo.motorId}`,
+      initialData
+    );
+
+    if (!modalMonitoreo.isOpen) return null;
+
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      // Convertir strings a números antes de enviar
+      const datosNumericos = Object.entries(datosMonitoreo).reduce((acc, [key, value]) => {
+        acc[key] = parseFloat(value as string) || 0;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      modalMonitoreo.onSubmit(datosNumericos);
+      clearDatos();
+    };
+
+    const handleChange = (field: string, value: string) => {
+      setDatosMonitoreo(prev => ({ ...prev, [field]: value }));
+    };
+
+    const campos = [
+      { key: 'Horometro Inicial', label: 'Horómetro Inicial', unit: 'hrs', placeholder: 'Ej: 1250.5' },
+      { key: 'Arranques Inicio', label: 'Arranques Inicio', unit: 'arranques', placeholder: 'Ej: 150' },
+      { key: 'M3 de Inicio', label: 'M³ de Inicio', unit: 'm³', placeholder: 'Ej: 2500.25' },
+      { key: 'Kw de Inicio', label: 'kW de Inicio', unit: 'kW', placeholder: 'Ej: 850.75' }
+    ];
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div 
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          onClick={modalMonitoreo.onCancel}
+        />
+        
+        <div className="relative bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-lg rounded-2xl p-6 border border-slate-600/50 shadow-2xl max-w-2xl w-full mx-4">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-3xl">📊</span>
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-2">
+              Registro de Datos del Motor
+            </h3>
+            <p className="text-gray-300">
+              Motor: {modalMonitoreo.nombreMotor}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {campos.map((campo) => (
+                <div key={campo.key} className="bg-gray-800/30 rounded-lg p-4">
+                  <label className="block text-white text-sm font-medium mb-2">
+                    {campo.label} ({campo.unit})
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={datosMonitoreo[campo.key as keyof typeof datosMonitoreo]}
+                    onChange={(e) => handleChange(campo.key, e.target.value)}
+                    placeholder={campo.placeholder}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="button"
+                onClick={modalMonitoreo.onCancel}
+                className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-all duration-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2"
+              >
+                <span>📊</span>
+                <span>Registrar Datos</span>
               </button>
             </div>
           </form>
@@ -704,7 +922,9 @@ export default function MonitoreoMotoresPage() {
                     {/* Botones de Control */}
                     <div className="mt-6 pt-6 border-t border-gray-700/50">
                       <p className="text-gray-400 text-sm mb-3">Control del Motor</p>
-                      <div className="flex space-x-3">
+                      
+                      {/* Botones Encender/Apagar */}
+                      <div className="flex space-x-3 mb-3">
                         <button
                           onClick={() => cambiarEstadoMotor(motor.id, 'Encendido', motor.fields['Nombre Motor'] || `Motor ${index + 1}`)}
                           disabled={procesandoMotor === motor.id || ultimoEstado?.fields['Estado Motor'] === 'Encendido'}
@@ -741,6 +961,30 @@ export default function MonitoreoMotoresPage() {
                           )}
                         </button>
                       </div>
+
+                      {/* Botón Registrar Datos */}
+                      <button
+                        onClick={() => abrirModalMonitoreo(motor.id, motor.fields['Nombre Motor'] || `Motor ${index + 1}`)}
+                        disabled={procesandoMotor === motor.id || ultimoEstado?.fields['Estado Motor'] !== 'Encendido'}
+                        className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-300 transform hover:scale-105 disabled:transform-none"
+                      >
+                        {procesandoMotor === motor.id ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Procesando...</span>
+                          </>
+                        ) : ultimoEstado?.fields['Estado Motor'] !== 'Encendido' ? (
+                          <>
+                            <span>📊</span>
+                            <span>Motor Apagado</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>📊</span>
+                            <span>Registrar Datos</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 );
@@ -773,6 +1017,9 @@ export default function MonitoreoMotoresPage() {
         
         {/* Modal de Protocolo */}
         <ModalProtocolo />
+        
+        {/* Modal de Monitoreo */}
+        <ModalMonitoreo />
       </div>
     </TurnoGuard>
   );

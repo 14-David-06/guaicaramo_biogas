@@ -9,6 +9,7 @@ const EQUIPO_BIOGAS_TABLE_ID = process.env.NEXT_PUBLIC_EQUIPO_BIOGAS_TABLE_ID;
 const MOTORES_TABLE_ID = process.env.NEXT_PUBLIC_MOTORES_TABLE_ID;
 const ESTADOS_MOTORES_TABLE_ID = process.env.NEXT_PUBLIC_ESTADOS_MOTORES_TABLE_ID;
 const PROTOCOLO_ENCENDIDO_TABLE_ID = process.env.NEXT_PUBLIC_PROTOCOLO_ENCENDIDO_TABLE_ID;
+const MONITOREO_MOTORES_TABLE_ID = process.env.NEXT_PUBLIC_MONITOREO_MOTORES_TABLE_ID;
 
 // Debug de configuración
 console.log('=== DEBUG AIRTABLE CONFIG ===');
@@ -36,17 +37,21 @@ console.log('Equipo BioGas Table ID:', EQUIPO_BIOGAS_TABLE_ID);
 console.log('Motores Table ID:', MOTORES_TABLE_ID);
 console.log('Estados Motores Table ID:', ESTADOS_MOTORES_TABLE_ID);
 console.log('Protocolo Encendido Table ID:', PROTOCOLO_ENCENDIDO_TABLE_ID);
+console.log('Monitoreo Motores Table ID:', MONITOREO_MOTORES_TABLE_ID);
 
 const AIRTABLE_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${TURNOS_TABLE_ID}`;
 const EQUIPO_BIOGAS_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${EQUIPO_BIOGAS_TABLE_ID}`;
 const MOTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${MOTORES_TABLE_ID}`;
 const ESTADOS_MOTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${ESTADOS_MOTORES_TABLE_ID}`;
 const PROTOCOLO_ENCENDIDO_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${PROTOCOLO_ENCENDIDO_TABLE_ID}`;
+const MONITOREO_MOTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${MONITOREO_MOTORES_TABLE_ID}`;
 
 console.log('Turnos API URL:', AIRTABLE_API_URL);
 console.log('Equipo BioGas API URL:', EQUIPO_BIOGAS_API_URL);
 console.log('Motores API URL:', MOTORES_API_URL);
 console.log('Estados Motores API URL:', ESTADOS_MOTORES_API_URL);
+console.log('Protocolo Encendido API URL:', PROTOCOLO_ENCENDIDO_API_URL);
+console.log('Monitoreo Motores API URL:', MONITOREO_MOTORES_API_URL);
 console.log('Protocolo Encendido API URL:', PROTOCOLO_ENCENDIDO_API_URL);
 
 export interface TurnoOperador {
@@ -141,6 +146,25 @@ export interface ProtocoloEncendido {
     'Observaciones generales'?: string;
     'Turno'?: string[];
     'Estado Motor'?: string[];
+    [key: string]: string | string[] | number | boolean | undefined;
+  };
+}
+
+export interface MonitoreoMotor {
+  id?: string;
+  fields: {
+    'Motor': string[];
+    'Horometro Inicial': number;
+    'Horometro Final'?: number;
+    'Arranques Inicio': number;
+    'Arranques Final'?: number;
+    'M3 de Inicio': number;
+    'M3 de Fin'?: number;
+    'Kw de Inicio': number;
+    'Kw de Fin'?: number;
+    'Realiza Registro': string;
+    'Turnos Operadores'?: string[];
+    'Estados Motores'?: string[];
     [key: string]: string | string[] | number | boolean | undefined;
   };
 }
@@ -571,6 +595,141 @@ export const airtableService = {
       return result;
     } catch (error) {
       console.error('Error al crear protocolo de encendido:', error);
+      throw error;
+    }
+  },
+
+  // Crear registro de monitoreo de motor
+  async crearMonitoreoMotor(
+    motorId: string,
+    operadorNombre: string,
+    datosMonitoreo: Omit<MonitoreoMotor['fields'], 'Motor' | 'Realiza Registro' | 'Turnos Operadores' | 'Estados Motores'>
+  ): Promise<MonitoreoMotor> {
+    try {
+      // Obtener el turno activo para asociarlo al registro
+      const turnoActivo = await this.obtenerTurnoActivo();
+      
+      // Obtener el último estado del motor para asociarlo
+      const ultimoEstado = await this.obtenerUltimoEstadoMotor(motorId);
+      
+      const data = {
+        fields: {
+          'Motor': [motorId],
+          'Realiza Registro': operadorNombre,
+          ...datosMonitoreo,
+          // Incluir el turno activo si existe
+          ...(turnoActivo && { 'Turnos Operadores': [turnoActivo.id!] }),
+          // Incluir el estado del motor si existe
+          ...(ultimoEstado && { 'Estados Motores': [ultimoEstado.id!] })
+        }
+      };
+
+      console.log('Creando monitoreo de motor con data:', data);
+
+      const response = await fetch(MONITOREO_MOTORES_API_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al crear monitoreo de motor:', errorText);
+        throw new Error(`Error al crear monitoreo de motor: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Monitoreo de motor creado:', result);
+      return result;
+    } catch (error) {
+      console.error('Error al crear monitoreo de motor:', error);
+      throw error;
+    }
+  },
+
+  // Obtener el último registro de monitoreo de un motor
+  async obtenerUltimoMonitoreoMotor(motorId: string): Promise<MonitoreoMotor | null> {
+    try {
+      const filterFormula = `{Motor} = "${motorId}"`;
+      const url = `${MONITOREO_MOTORES_API_URL}?filterByFormula=${encodeURIComponent(filterFormula)}&sort[0][field]=Fecha de creacion&sort[0][direction]=desc&maxRecords=1`;
+      
+      const response = await fetch(url, { headers });
+      
+      if (!response.ok) {
+        throw new Error(`Error al obtener último monitoreo: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data.records.length > 0 ? data.records[0] : null;
+    } catch (error) {
+      console.error('Error al obtener último monitoreo del motor:', error);
+      return null;
+    }
+  },
+
+  // Actualizar un registro de monitoreo existente
+  async actualizarMonitoreoMotor(registroId: string, camposActualizar: Partial<MonitoreoMotor['fields']>): Promise<MonitoreoMotor> {
+    try {
+      const data = {
+        fields: camposActualizar
+      };
+
+      console.log('Actualizando monitoreo de motor:', registroId, data);
+
+      const response = await fetch(`${MONITOREO_MOTORES_API_URL}/${registroId}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al actualizar monitoreo de motor:', errorText);
+        throw new Error(`Error al actualizar monitoreo de motor: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Monitoreo de motor actualizado:', result);
+      return result;
+    } catch (error) {
+      console.error('Error al actualizar monitoreo de motor:', error);
+      throw error;
+    }
+  },
+
+  // Registrar nuevos datos de monitoreo (actualiza el último y crea uno nuevo)
+  async registrarNuevoMonitoreo(
+    motorId: string,
+    operadorNombre: string,
+    nuevosDatos: { 
+      'Horometro Inicial': number;
+      'Arranques Inicio': number;
+      'M3 de Inicio': number;
+      'Kw de Inicio': number;
+    }
+  ): Promise<{ registroActualizado: MonitoreoMotor | null; nuevoRegistro: MonitoreoMotor }> {
+    try {
+      let registroActualizado = null;
+
+      // 1. Obtener el último registro de monitoreo para este motor
+      const ultimoRegistro = await this.obtenerUltimoMonitoreoMotor(motorId);
+
+      // 2. Si existe un registro anterior, actualizarlo con los valores "Final"
+      if (ultimoRegistro) {
+        registroActualizado = await this.actualizarMonitoreoMotor(ultimoRegistro.id!, {
+          'Horometro Final': nuevosDatos['Horometro Inicial'],
+          'Arranques Final': nuevosDatos['Arranques Inicio'],
+          'M3 de Fin': nuevosDatos['M3 de Inicio'],
+          'Kw de Fin': nuevosDatos['Kw de Inicio']
+        });
+      }
+
+      // 3. Crear un nuevo registro con los datos como valores "Inicio"
+      const nuevoRegistro = await this.crearMonitoreoMotor(motorId, operadorNombre, nuevosDatos);
+
+      return { registroActualizado, nuevoRegistro };
+    } catch (error) {
+      console.error('Error al registrar nuevo monitoreo:', error);
       throw error;
     }
   }
