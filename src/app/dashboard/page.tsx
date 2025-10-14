@@ -21,14 +21,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-gray-900 flex flex-col">
       <Navbar 
         onLoginClick={() => setShowLogin(true)} 
         loggedInUser={loggedInUser}
         onLogout={logout}
       />
       
-      <main className="pt-16 px-4 sm:px-6 lg:px-8">
+      <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
         <div className="max-w-7xl mx-auto py-12">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-white mb-4">Dashboard Principal</h1>

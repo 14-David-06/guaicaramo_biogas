@@ -51,7 +51,7 @@ export default function Home() {
 
   if (loggedInUser) {
     return (
-      <div className="relative min-h-screen">
+      <div className="relative min-h-screen flex flex-col">
         {/* Background Image */}
         <div className="fixed inset-0 w-full h-full z-0">
           <Image
@@ -75,7 +75,7 @@ export default function Home() {
         />
 
         {/* Main Dashboard Content */}
-        <main className="relative z-10 pt-20 pb-16 px-4 sm:px-6 lg:px-8">
+        <main className="relative z-10 pt-20 pb-16 px-4 sm:px-6 lg:px-8 flex-grow">
           <div className="max-w-7xl mx-auto">
             {/* Dashboard Content Placeholder */}
             <div className="text-center py-20">
@@ -97,7 +97,7 @@ export default function Home() {
   }
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen flex flex-col">
       {/* Video Background */}
       <div className="fixed inset-0 w-full h-full z-0">
         <video
@@ -116,7 +116,7 @@ export default function Home() {
       <Navbar onLoginClick={() => setShowLogin(true)} />
 
       {/* Hero Section */}
-      <main id="inicio" className="relative z-10 flex flex-col items-center justify-center min-h-screen text-center px-4 sm:px-6 lg:px-8 pt-24 pb-8">
+      <main id="inicio" className="relative z-10 flex flex-col items-center justify-center flex-grow text-center px-4 sm:px-6 lg:px-8 pt-24 pb-8">
         <div className="max-w-7xl mx-auto w-full">
           {/* Hero Content with enhanced glassmorphism */}
           <div className="backdrop-blur-2xl bg-gradient-to-br from-green-900/50 via-emerald-800/40 to-slate-900/50 rounded-[2rem] p-10 sm:p-16 border border-green-400/30 shadow-[0_8px_32px_rgba(16,185,129,0.2)] mb-16 animate-fade-in-up">
