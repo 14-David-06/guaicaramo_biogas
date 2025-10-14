@@ -2,89 +2,126 @@ import Image from "next/image";
 
 export default function Footer() {
   return (
-    <footer className="relative z-10 bg-gray-900 text-white py-16">
-      <div className="max-w-7xl mx-auto px-6">
-        {/* Main footer content */}
-        <div className="grid md:grid-cols-4 gap-8 mb-12">
-          {/* Logo y descripción */}
-          <div className="md:col-span-2">
-            <div className="flex items-center mb-6">
-              <Image
-                              src="/logo-guaicaramo.png"
-                              alt="Logo Guaicaramo - Ir al inicio"
-                              width={268}
-                              height={118}
-                              className="w-[134px] h-[59px] sm:w-[268px] sm:h-[118px] mr-2 sm:mr-3"
-                            />
-            </div>
-            <p className="text-gray-400 mb-6 max-w-md leading-relaxed">
-              Plataforma colaborativa para la gestión y monitoreo de sistemas de biogás. 
-              Desarrollando soluciones sostenibles para un futuro más verde.
-            </p>
-          </div>
-
-          {/* Enlaces rápidos */}
-          <div>
-            <h3 className="text-lg font-semibold mb-6">Enlaces Rápidos</h3>
-            <ul className="space-y-3">
-              <li>
-                <a href="#inicio" className="text-gray-400 hover:text-white transition-colors">
-                  Inicio
-                </a>
-              </li>
-              <li>
-                <a href="#plataforma" className="text-gray-400 hover:text-white transition-colors">
-                  Plataforma
-                </a>
-              </li>
-              <li>
-                <a href="#nosotros" className="text-gray-400 hover:text-white transition-colors">
-                  Nosotros
-                </a>
-              </li>
-              <li>
-                <a href="#contacto" className="text-gray-400 hover:text-white transition-colors">
-                  Contacto
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Información de contacto */}
-          <div>
-            <h3 className="text-lg font-semibold mb-6">Contacto</h3>
-            <ul className="space-y-3 text-gray-400">
-              <li className="flex items-center">
-                <svg className="w-4 h-4 mr-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                </svg>
-                Guaicaramo, Colombia
-              </li>
-              <li className="flex items-center">
-                <svg className="w-4 h-4 mr-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                </svg>
-                info@guaicaramobiogas.com
-              </li>
-              <li className="flex items-center">
-                <svg className="w-4 h-4 mr-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                </svg>
-                +57 (123) 456-7890
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t border-gray-800 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="mb-4 md:mb-0">
-              <p className="text-gray-400 text-sm">
-                &copy; 2025 Sirius Regenerative Solutions S.A.S ZOMAC. Todos los derechos reservados. 
-                <br />Desarrollado para Guaicaramo - Biogas con ❤️ 
+    <footer className="bg-white/10 backdrop-blur-md border-t border-white/20 mt-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Logo y descripción */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <Image
+                  src="/logo-Guaicaramo.png"
+                  alt="Logo Guaicaramo"
+                  width={320}
+                  height={140}
+                  className="h-15 w-auto object-contain"
+                />
+              </div>
+              <p className="text-white/70 text-sm leading-relaxed">
+                Sistema integral de monitoreo y gestión para plantas de biogás. 
+                Tecnología sostenible para un futuro verde.
               </p>
+            </div>
+
+            {/* Enlaces rápidos */}
+            <div className="space-y-4">
+              <h3 className="text-white/90 font-semibold text-base drop-shadow-md">
+                Enlaces Rápidos
+              </h3>
+              <ul className="space-y-2">
+                <li>
+                  <a 
+                    href="/dashboard" 
+                    className="text-white/70 hover:text-white transition-colors duration-200 text-sm hover:translate-x-1 transform transition-transform inline-block"
+                  >
+                    Dashboard Principal
+                  </a>
+                </li>
+                <li>
+                  <a 
+                    href="/sensores" 
+                    className="text-white/70 hover:text-white transition-colors duration-200 text-sm hover:translate-x-1 transform transition-transform inline-block"
+                  >
+                    Monitoreo en Tiempo Real
+                  </a>
+                </li>
+                <li>
+                  <a 
+                    href="/reportes/operativos" 
+                    className="text-white/70 hover:text-white transition-colors duration-200 text-sm hover:translate-x-1 transform transition-transform inline-block"
+                  >
+                    Reportes
+                  </a>
+                </li>
+                <li>
+                  <a 
+                    href="/mantenimiento/programa" 
+                    className="text-white/70 hover:text-white transition-colors duration-200 text-sm hover:translate-x-1 transform transition-transform inline-block"
+                  >
+                    Mantenimiento
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Información de contacto */}
+            <div className="space-y-4">
+              <h3 className="text-white/90 font-semibold text-base drop-shadow-md">
+                Información
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3 text-white/70">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-sm">Guaicaramo, Boyacá</span>
+                </div>
+                <div className="flex items-center space-x-3 text-white/70">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm">24/7 Monitoreo</span>
+                </div>
+                <div className="flex items-center space-x-3 text-white/70">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm">Sistema Certificado</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Línea divisoria */}
+          <div className="border-t border-white/20 mt-8 pt-6">
+            <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+              {/* Copyright */}
+              <div className="text-white/60 text-sm">
+                © {new Date().getFullYear()} Guaicaramo Biogás Platform. Todos los derechos reservados.
+              </div>
+
+              {/* Links adicionales */}
+              <div className="flex space-x-6">
+                <a 
+                  href="#" 
+                  className="text-white/60 hover:text-white/80 transition-colors duration-200 text-sm"
+                >
+                  Política de Privacidad
+                </a>
+                <a 
+                  href="#" 
+                  className="text-white/60 hover:text-white/80 transition-colors duration-200 text-sm"
+                >
+                  Términos de Uso
+                </a>
+                <a 
+                  href="#" 
+                  className="text-white/60 hover:text-white/80 transition-colors duration-200 text-sm"
+                >
+                  Soporte Técnico
+                </a>
+              </div>
             </div>
           </div>
         </div>
