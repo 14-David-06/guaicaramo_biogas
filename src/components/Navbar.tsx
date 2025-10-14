@@ -78,6 +78,11 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
           description: "Abrir y cerrar turnos operativos"
         },
         {
+          name: "Monitoreo de Motores",
+          href: "/monitoreo-motores",
+          description: "Control y supervisión de motores"
+        },
+        {
           name: "Registro Jerbacher",
           href: "/registro-jerbacher",
           description: "Parámetros diarios del sistema"
