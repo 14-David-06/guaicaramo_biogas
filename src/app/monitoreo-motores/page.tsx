@@ -2,6 +2,7 @@
 
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BackgroundLayout from '@/components/BackgroundLayout';
 import TurnoGuard from '@/components/TurnoGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
@@ -166,11 +167,16 @@ export default function MonitoreoMotoresPage() {
         protocoloData
       );
 
-      // Mostrar mensaje de éxito
-      alert(`✅ ${nombreMotor} encendido exitosamente`);
+      // Mostrar mensaje de éxito con información sobre el siguiente paso
+      alert(`✅ ${nombreMotor} encendido exitosamente\n\n📊 A continuación debes registrar los datos iniciales del motor (Horómetro, Arranques, M³, kW)`);
 
       // Recargar datos para mostrar el cambio
       await cargarDatosMotores();
+
+      // NUEVO: Abrir automáticamente el modal de registro de datos del motor
+      setTimeout(() => {
+        abrirModalMonitoreo(motorId, nombreMotor);
+      }, 1000); // Dar tiempo para que el usuario lea el mensaje
       
     } catch (error) {
       console.error('Error en el proceso de encendido:', error);
@@ -674,16 +680,28 @@ export default function MonitoreoMotoresPage() {
             <h3 className="text-2xl font-bold text-white mb-2">
               Registro de Datos del Motor
             </h3>
-            <p className="text-gray-300">
-              Motor: {modalMonitoreo.nombreMotor}
+            <p className="text-gray-300 mb-2">
+              Motor: <span className="text-blue-400 font-semibold">{modalMonitoreo.nombreMotor}</span>
             </p>
+            <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-3 text-sm text-blue-300">
+              <p className="flex items-center justify-center gap-2">
+                <span>ℹ️</span>
+                <span>Completa los datos iniciales del motor después del encendido</span>
+              </p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {campos.map((campo) => (
-                <div key={campo.key} className="bg-gray-800/30 rounded-lg p-4">
-                  <label className="block text-white text-sm font-medium mb-2">
+                <div key={campo.key} className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
+                  <label className="block text-white text-sm font-medium mb-2 flex items-center gap-2">
+                    <span className="text-blue-400">
+                      {campo.key === 'Horometro Inicial' && '⏰'}
+                      {campo.key === 'Arranques Inicio' && '🔄'}
+                      {campo.key === 'M3 de Inicio' && '📦'}
+                      {campo.key === 'Kw de Inicio' && '⚡'}
+                    </span>
                     {campo.label} ({campo.unit})
                   </label>
                   <input
@@ -693,7 +711,7 @@ export default function MonitoreoMotoresPage() {
                     value={datosMonitoreo[campo.key as keyof typeof datosMonitoreo]}
                     onChange={(e) => handleChange(campo.key, e.target.value)}
                     placeholder={campo.placeholder}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     required
                   />
                 </div>
@@ -710,10 +728,10 @@ export default function MonitoreoMotoresPage() {
               </button>
               <button
                 type="submit"
-                className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2"
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
               >
                 <span>📊</span>
-                <span>Registrar Datos</span>
+                <span>Completar Registro</span>
               </button>
             </div>
           </form>
@@ -724,24 +742,27 @@ export default function MonitoreoMotoresPage() {
 
   if (!loggedInUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-white text-center">
-          <h1 className="text-2xl mb-4">Acceso Requerido</h1>
-          <p>Debes iniciar sesión para acceder al monitoreo de motores.</p>
+      <BackgroundLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-xl p-8 border border-white/20">
+            <h1 className="text-2xl mb-4">Acceso Requerido</h1>
+            <p>Debes iniciar sesión para acceder al monitoreo de motores.</p>
+          </div>
         </div>
-      </div>
+      </BackgroundLayout>
     );
   }
 
   if (loading) {
     return (
       <TurnoGuard>
-        <div className="min-h-screen bg-gray-900 flex flex-col">
-          <Navbar 
-            onLoginClick={() => {}} 
-            loggedInUser={loggedInUser}
-            onLogout={logout}
-          />
+        <BackgroundLayout>
+          <div className="min-h-screen flex flex-col">
+            <Navbar 
+              onLoginClick={() => {}} 
+              loggedInUser={loggedInUser}
+              onLogout={logout}
+            />
           
           <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow flex items-center justify-center">
             <div className="text-center">
@@ -749,19 +770,21 @@ export default function MonitoreoMotoresPage() {
               <p className="text-white text-lg">Cargando información de motores...</p>
             </div>
           </main>
-        </div>
+          </div>
+        </BackgroundLayout>
       </TurnoGuard>
     );
   }
 
   return (
     <TurnoGuard>
-      <div className="min-h-screen bg-gray-900 flex flex-col">
-        <Navbar 
-          onLoginClick={() => {}} 
-          loggedInUser={loggedInUser}
-          onLogout={logout}
-        />
+      <BackgroundLayout>
+        <div className="min-h-screen flex flex-col">
+          <Navbar 
+            onLoginClick={() => {}} 
+            loggedInUser={loggedInUser}
+            onLogout={logout}
+          />
         
         <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
           <div className="max-w-7xl mx-auto py-12">
@@ -1020,7 +1043,8 @@ export default function MonitoreoMotoresPage() {
         
         {/* Modal de Monitoreo */}
         <ModalMonitoreo />
-      </div>
+        </div>
+      </BackgroundLayout>
     </TurnoGuard>
   );
 }

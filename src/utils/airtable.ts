@@ -15,6 +15,7 @@ const REGISTRO_DIARIOS_JENBACHER_TABLE_ID = process.env.NEXT_PUBLIC_REGISTRO_DIA
 const BIODIGESTORES_TABLE_ID = process.env.NEXT_PUBLIC_BIODIGESTORES_TABLE_ID;
 const BITACORA_BIOGAS_TABLE_ID = process.env.NEXT_PUBLIC_BITACORA_BIOGAS_TABLE_ID;
 const MEDICION_BIODIGESTORES_TABLE_ID = process.env.NEXT_PUBLIC_MEDICION_BIODIGESTORES_TABLE_ID;
+const LIMPIEZAS_TABLE_ID = 'tblk6nPfd6q4PEqMJ';
 
 // Debug de configuración
 console.log('=== DEBUG AIRTABLE CONFIG ===');
@@ -55,6 +56,7 @@ const REGISTRO_DIARIOS_JENBACHER_API_URL = `https://api.airtable.com/v0/${AIRTAB
 const BIODIGESTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${BIODIGESTORES_TABLE_ID}`;
 const BITACORA_BIOGAS_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${BITACORA_BIOGAS_TABLE_ID}`;
 const MEDICION_BIODIGESTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${MEDICION_BIODIGESTORES_TABLE_ID}`;
+const LIMPIEZAS_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${LIMPIEZAS_TABLE_ID}`;
 
 console.log('Turnos API URL:', AIRTABLE_API_URL);
 console.log('Equipo BioGas API URL:', EQUIPO_BIOGAS_API_URL);
@@ -66,6 +68,7 @@ console.log('Registro Diarios Jenbacher API URL:', REGISTRO_DIARIOS_JENBACHER_AP
 console.log('Biodigestores API URL:', BIODIGESTORES_API_URL);
 console.log('Bitacora Biogas API URL:', BITACORA_BIOGAS_API_URL);
 console.log('Medicion Biodigestores API URL:', MEDICION_BIODIGESTORES_API_URL);
+console.log('Limpiezas API URL:', LIMPIEZAS_API_URL);
 console.log('Protocolo Encendido API URL:', PROTOCOLO_ENCENDIDO_API_URL);
 
 export interface TurnoOperador {
@@ -244,6 +247,24 @@ export interface MedicionBiodigestores {
     'Realiza Registro': string;
     'Turno Biogas'?: string[];
     'Biodigestor Monitoreado'?: string[];
+    [key: string]: string | string[] | number | boolean | undefined;
+  };
+}
+
+export interface LimpiezaRegistro {
+  id?: string;
+  fields: {
+    'ID': string;
+    'Fecha de creacion': string;
+    'Pisos y andén limpios (cuarto de control y área externa)': string;
+    'Ventanas limpias con retal húmedo?': string;
+    'Tableros limpios (con precaución en perillas y controles)?': string;
+    'Estructuras libres de polvo y telarañas?': string;
+    'Equipos (manómetros, tuberías, medidores) limpios?': string;
+    'Equipos Jenbacher limpios (cuidado con controles)?': string;
+    'Observaciones': string;
+    'Realiza Registro': string;
+    'Turno'?: string[];
     [key: string]: string | string[] | number | boolean | undefined;
   };
 }
@@ -1145,6 +1166,61 @@ export const airtableService = {
     } catch (error) {
       console.error('Error al explorar tabla desconocida:', error);
       return null;
+    }
+  },
+
+  // ====== FUNCIONES PARA LIMPIEZAS ======
+
+  // Crear registro de limpieza
+  async crearRegistroLimpieza(registroLimpieza: Omit<LimpiezaRegistro, 'id'>): Promise<LimpiezaRegistro> {
+    try {
+      const data = {
+        records: [registroLimpieza]
+      };
+
+      console.log('Datos a enviar para limpieza:', JSON.stringify(data, null, 2));
+
+      const response = await fetch(LIMPIEZAS_API_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al crear registro de limpieza:', errorText);
+        throw new Error(`Error al crear registro de limpieza: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Registro de limpieza creado exitosamente:', result);
+      return result.records[0];
+    } catch (error) {
+      console.error('Error al crear registro de limpieza:', error);
+      throw error;
+    }
+  },
+
+  // Obtener registros de limpiezas
+  async obtenerRegistrosLimpiezas(): Promise<LimpiezaRegistro[]> {
+    try {
+      const response = await fetch(`${LIMPIEZAS_API_URL}?sort[0][field]=Fecha de creacion&sort[0][direction]=desc`, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al obtener registros de limpiezas:', errorText);
+        throw new Error(`Error al obtener registros de limpiezas: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Registros de limpiezas obtenidos:', data);
+      return data.records || [];
+    } catch (error) {
+      console.error('Error al obtener registros de limpiezas:', error);
+      throw error;
     }
   }
 };

@@ -88,6 +88,11 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
           description: "Parámetros diarios del sistema"
         },
         {
+          name: "Registro de Limpiezas",
+          href: "/limpiezas",
+          description: "Control de limpiezas en la planta"
+        },
+        {
           name: "Bitácora de Eventos",
           href: "/bitacora-biogas",
           description: "Registro de incidencias"

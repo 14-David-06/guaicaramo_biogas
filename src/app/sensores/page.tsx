@@ -3,6 +3,7 @@
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import TurnoGuard from '@/components/TurnoGuard';
+import BackgroundLayout from '@/components/BackgroundLayout';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function SensoresPage() {
@@ -48,14 +49,15 @@ export default function SensoresPage() {
 
   return (
     <TurnoGuard>
-      <div className="min-h-screen bg-gray-900 flex flex-col">
-        <Navbar 
-          onLoginClick={() => {}} 
-          loggedInUser={loggedInUser}
-          onLogout={logout}
-        />
-        
-        <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
+      <BackgroundLayout>
+        <div className="min-h-screen flex flex-col">
+          <Navbar 
+            onLoginClick={() => {}} 
+            loggedInUser={loggedInUser}
+            onLogout={logout}
+          />
+          
+          <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">`
         <div className="max-w-7xl mx-auto py-12">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-white mb-4">Sensores en Tiempo Real</h1>
@@ -154,7 +156,8 @@ export default function SensoresPage() {
       </main>
 
       <Footer />
-      </div>
+        </div>
+      </BackgroundLayout>
     </TurnoGuard>
   );
 }

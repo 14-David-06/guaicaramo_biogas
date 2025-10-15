@@ -2,6 +2,7 @@
 
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import BackgroundLayout from '@/components/BackgroundLayout';
 import TurnoGuard from '@/components/TurnoGuard';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
@@ -109,12 +110,14 @@ export default function BitacoraBiogasPage() {
 
   if (!loggedInUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-white text-center">
-          <h1 className="text-2xl mb-4">Acceso Requerido</h1>
-          <p>Debes iniciar sesión para acceder a la bitácora de biogás.</p>
+      <BackgroundLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-xl p-8 border border-white/20">
+            <h1 className="text-2xl mb-4">Acceso Requerido</h1>
+            <p>Debes iniciar sesión para acceder a la bitácora de biogás.</p>
+          </div>
         </div>
-      </div>
+      </BackgroundLayout>
     );
   }
 
@@ -184,12 +187,13 @@ export default function BitacoraBiogasPage() {
 
   return (
     <TurnoGuard>
-      <div className="min-h-screen bg-gray-900 flex flex-col">
-        <Navbar 
-          onLoginClick={() => {}} 
-          loggedInUser={loggedInUser}
-          onLogout={logout}
-        />
+      <BackgroundLayout>
+        <div className="min-h-screen flex flex-col">
+          <Navbar 
+            onLoginClick={() => {}} 
+            loggedInUser={loggedInUser}
+            onLogout={logout}
+          />
         
         <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
           <div className="max-w-4xl mx-auto py-12">
@@ -328,7 +332,8 @@ export default function BitacoraBiogasPage() {
         </main>
 
         <Footer />
-      </div>
+        </div>
+      </BackgroundLayout>
     </TurnoGuard>
   );
 }

@@ -177,31 +177,41 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-900 via-gray-900 to-black flex items-center justify-center p-4">
-      {/* Background pattern */}
-      <div className="absolute inset-0 bg-black/50">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 25% 25%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
-                           radial-gradient(circle at 75% 75%, rgba(16, 185, 129, 0.1) 0%, transparent 50%)`
-        }}></div>
+    <div className="min-h-screen relative bg-gray-900 flex items-center justify-center p-4">
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0">
+        <Image
+          src="/18032025-DSC_2933.jpg"
+          alt="Planta de Biogas Guaicaramo"
+          fill
+          className="object-cover"
+          priority
+          quality={90}
+        />
+        {/* Dark overlay for better text readability */}
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-[1px]"></div>
       </div>
 
       <div className="relative z-10 w-full max-w-md mx-auto">
         {/* Header */}
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex justify-center items-center mb-4 sm:mb-6">
-            <Image
-              src="/logo-guaicaramo.png"
-              alt="Logo Guaicaramo Biogas"
-              width={80}
-              height={80}
-              className="sm:w-[150px] sm:h-[100px] lg:w-[180px] lg:h-[120px]"
-            />
+            {/* Logo container with glass effect */}
+            <div className="bg-white/15 backdrop-blur-md rounded-3xl p-4 sm:p-6 border border-white/20 shadow-2xl">
+              <Image
+                src="/logo-guaicaramo.png"
+                alt="Logo Guaicaramo Biogas"
+                width={120}
+                height={120}
+                className="w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 object-contain"
+                priority
+              />
+            </div>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-2 drop-shadow-lg">
             Acceso a la Plataforma
           </h2>
-          <p className="text-gray-400 text-sm sm:text-base px-4">
+          <p className="text-gray-200 text-sm sm:text-base px-4 drop-shadow-md">
             {step === 'cedula' ? 'Ingrese su número de cédula' : 
              step === 'new_password' ? 'Configure su contraseña' : 
              'Ingrese su contraseña'}
