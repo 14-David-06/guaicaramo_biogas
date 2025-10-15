@@ -106,71 +106,21 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
           name: "Sensores en Tiempo Real",
           href: "/sensores",
           description: "Datos de sensores IoT"
-        },
-        {
-          name: "Alertas y Alarmas",
-          href: "/alertas",
-          description: "Sistema de notificaciones"
         }
       ]
     },
-    reportes: {
-      name: "Reportes",
+    Biodigestores: {
+      name: "Biodigestores",
       items: [
         {
-          name: "Reportes Operativos",
-          href: "/reportes/operativos",
-          description: "Informes de operación diaria"
+          name: "Registro de biodigestores",
+          href: "/registro-biodigestores",
+          description: "Registro y gestión de biodigestores"
         },
         {
-          name: "Análisis de Rendimiento",
-          href: "/reportes/rendimiento",
-          description: "Métricas de eficiencia"
-        },
-        {
-          name: "Reportes Ambientales",
-          href: "/reportes/ambientales",
-          description: "Impacto y sostenibilidad"
-        }
-      ]
-    },
-    mantenimiento: {
-      name: "Mantenimiento",
-      items: [
-        {
-          name: "Programa de Mantenimiento",
-          href: "/mantenimiento/programa",
-          description: "Calendario y planificación"
-        },
-        {
-          name: "Órdenes de Trabajo",
-          href: "/mantenimiento/ordenes",
-          description: "Gestión de OT"
-        },
-        {
-          name: "Inventario de Repuestos",
-          href: "/mantenimiento/inventario",
-          description: "Control de materiales"
-        }
-      ]
-    },
-    configuracion: {
-      name: "Configuración",
-      items: [
-        {
-          name: "Usuarios y Permisos",
-          href: "/config/usuarios",
-          description: "Gestión de accesos"
-        },
-        {
-          name: "Configuración del Sistema",
-          href: "/config/sistema",
-          description: "Parámetros generales"
-        },
-        {
-          name: "Copias de Seguridad",
-          href: "/config/backup",
-          description: "Respaldo de datos"
+          name: "Monitoreo de biodigestores",
+          href: "/monitoreo-biodigestores",
+          description: "Monitoreo y control en tiempo real"
         }
       ]
     }

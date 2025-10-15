@@ -3,123 +3,183 @@
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import TurnoGuard from '@/components/TurnoGuard';
+import VoiceRecorder from '@/components/VoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
-import { useState } from 'react';
-
-interface Evento {
-  id: string;
-  fecha: string;
-  hora: string;
-  tipo: 'incidencia' | 'mantenimiento' | 'operacion' | 'alarma';
-  descripcion: string;
-  operador: string;
-  estado: 'abierto' | 'en_proceso' | 'resuelto';
-}
+import { useState, useEffect } from 'react';
+import { airtableService, BitacoraBiogas } from '@/utils/airtable';
 
 export default function BitacoraBiogasPage() {
   const { user: loggedInUser, logout } = useAuth();
-  const [nuevoEvento, setNuevoEvento] = useState<{
-    tipo: 'incidencia' | 'mantenimiento' | 'operacion' | 'alarma';
-    descripcion: string;
-  }>({
-    tipo: 'incidencia',
-    descripcion: ''
-  });
 
-  // Datos simulados de eventos
-  const [eventos] = useState<Evento[]>([
-    {
-      id: '1',
-      fecha: '2025-10-14',
-      hora: '14:30',
-      tipo: 'alarma',
-      descripcion: 'Presión de gas por debajo del límite mínimo',
-      operador: 'David Hernandez',
-      estado: 'resuelto'
-    },
-    {
-      id: '2',
-      fecha: '2025-10-14',
-      hora: '13:15',
-      tipo: 'mantenimiento',
-      descripcion: 'Limpieza de filtros del sistema de gas',
-      operador: 'David Hernandez',
-      estado: 'resuelto'
-    },
-    {
-      id: '3',
-      fecha: '2025-10-14',
-      hora: '12:00',
-      tipo: 'operacion',
-      descripcion: 'Inicio de turno - Revisión general del sistema',
-      operador: 'David Hernandez',
-      estado: 'resuelto'
-    },
-    {
-      id: '4',
-      fecha: '2025-10-13',
-      hora: '16:45',
-      tipo: 'incidencia',
-      descripcion: 'Temperatura del digestor elevada',
-      operador: 'María González',
-      estado: 'resuelto'
+  // Estados del formulario
+  const [transcripcionOperador, setTranscripcionOperador] = useState<string>('');
+  const [informeEjecutivo, setInformeEjecutivo] = useState<string>('');
+  const [enviandoFormulario, setEnviandoFormulario] = useState(false);
+  const [generandoInforme, setGenerandoInforme] = useState(false);
+
+  // Estados para mostrar registros
+  const [registrosBitacora, setRegistrosBitacora] = useState<BitacoraBiogas[]>([]);
+  const [cargandoRegistros, setCargandoRegistros] = useState(true);
+  const [mostrarRegistros, setMostrarRegistros] = useState(false);
+
+  // Función para cargar registros
+  const cargarRegistros = async () => {
+    setCargandoRegistros(true);
+    try {
+      const registros = await airtableService.obtenerBitacoraBiogas();
+      setRegistrosBitacora(registros);
+    } catch (error) {
+      console.error('Error cargando registros:', error);
+    } finally {
+      setCargandoRegistros(false);
     }
-  ]);
+  };
+
+  // Generar informe ejecutivo automáticamente usando IA
+  const generarInformeEjecutivo = async () => {
+    if (!transcripcionOperador.trim() || !loggedInUser || generandoInforme) {
+      return;
+    }
+
+    setGenerandoInforme(true);
+
+    // Timeout de 10 segundos máximo
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout: La IA tardó demasiado')), 10000)
+    );
+
+    const fetchPromise = fetch('/api/generar-informe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transcripcion: transcripcionOperador,
+        operador: loggedInUser.nombre,
+        fecha: new Date().toISOString()
+      }),
+    });
+
+    try {
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+
+      if (!response.ok) {
+        console.error('Error en la respuesta:', response.status, response.statusText);
+        throw new Error(`Error del servidor: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.informe) {
+        setInformeEjecutivo(data.informe);
+      } else {
+        throw new Error('No se recibió el informe en la respuesta');
+      }
+
+    } catch (error) {
+      console.error('Error generando informe:', error);
+      // En lugar de mostrar error, simplemente no poner nada para que el usuario pueda enviar sin informe
+      setInformeEjecutivo('');
+    } finally {
+      setGenerandoInforme(false);
+    }
+  };
+
+  // Cargar registros al montar el componente
+  useEffect(() => {
+    if (loggedInUser) {
+      cargarRegistros();
+    }
+  }, [loggedInUser]);
+
+  // Generar informe automáticamente cuando la transcripción cambie
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (transcripcionOperador.trim().length > 30 && !informeEjecutivo.trim() && !generandoInforme) {
+        generarInformeEjecutivo();
+      }
+    }, 1500); // Reducido a 1.5 segundos
+
+    return () => clearTimeout(timeoutId);
+  }, [transcripcionOperador, informeEjecutivo, generandoInforme]);
+
+  // Manejar transcripción de voz para transcripción del operador
+  const handleTranscripcionOperador = (texto: string) => {
+    setTranscripcionOperador(prev => prev + (prev ? ' ' : '') + texto);
+  };
 
   if (!loggedInUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="text-white text-center">
           <h1 className="text-2xl mb-4">Acceso Requerido</h1>
-          <p>Debes iniciar sesión para acceder a la bitácora de eventos.</p>
+          <p>Debes iniciar sesión para acceder a la bitácora de biogás.</p>
         </div>
       </div>
     );
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Enviar formulario
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nuevoEvento.descripcion.trim()) return;
+    
+    if (!transcripcionOperador.trim()) {
+      alert('La transcripción del operador es obligatoria');
+      return;
+    }
 
-    console.log('Nuevo evento registrado:', {
-      ...nuevoEvento,
-      fecha: new Date().toISOString().split('T')[0],
-      hora: new Date().toLocaleTimeString().slice(0, 5),
-      operador: loggedInUser.nombre,
-      estado: 'abierto'
+    // Si no hay informe ejecutivo, intentamos generarlo una última vez rápido
+    if (!informeEjecutivo.trim() && !generandoInforme) {
+      const confirmSinInforme = confirm(
+        '⚠️ No se ha generado el informe ejecutivo automáticamente. ¿Deseas:\n\n' +
+        '• ACEPTAR: Enviar solo con la transcripción del operador\n' +
+        '• CANCELAR: Escribir el informe ejecutivo manualmente'
+      );
+      
+      if (!confirmSinInforme) {
+        return; // Usuario decide escribir manualmente
+      }
+    }
+
+    setEnviandoFormulario(true);
+
+    try {
+      // Si no hay informe ejecutivo, usar la transcripción como informe básico
+      const informeFinal = informeEjecutivo.trim() || 
+        `Informe basado en transcripción del operador:\n\n${transcripcionOperador.trim()}`;
+
+      await airtableService.crearBitacoraBiogas(
+        transcripcionOperador.trim(),
+        informeFinal,
+        loggedInUser.nombre
+      );
+
+      alert('✅ Registro de bitácora creado exitosamente');
+      
+      // Limpiar formulario
+      setTranscripcionOperador('');
+      setInformeEjecutivo('');
+      
+      // Recargar registros
+      await cargarRegistros();
+
+    } catch (error) {
+      console.error('Error al crear registro:', error);
+      alert(' Error al crear el registro. Intenta nuevamente.');
+    } finally {
+      setEnviandoFormulario(false);
+    }
+  };
+
+  // Formatear fecha para mostrar
+  const formatearFecha = (fechaISO: string) => {
+    const fecha = new Date(fechaISO);
+    return fecha.toLocaleString('es-CO', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
     });
-
-    alert('Evento registrado exitosamente en la bitácora');
-    setNuevoEvento({ tipo: 'incidencia', descripcion: '' });
-  };
-
-  const getTipoColor = (tipo: string) => {
-    switch (tipo) {
-      case 'alarma': return 'text-red-400 bg-red-400/20';
-      case 'incidencia': return 'text-yellow-400 bg-yellow-400/20';
-      case 'mantenimiento': return 'text-blue-400 bg-blue-400/20';
-      case 'operacion': return 'text-green-400 bg-green-400/20';
-      default: return 'text-gray-400 bg-gray-400/20';
-    }
-  };
-
-  const getEstadoColor = (estado: string) => {
-    switch (estado) {
-      case 'abierto': return 'text-red-400 bg-red-400/20';
-      case 'en_proceso': return 'text-yellow-400 bg-yellow-400/20';
-      case 'resuelto': return 'text-green-400 bg-green-400/20';
-      default: return 'text-gray-400 bg-gray-400/20';
-    }
-  };
-
-  const getTipoIcon = (tipo: string) => {
-    switch (tipo) {
-      case 'alarma': return '🚨';
-      case 'incidencia': return '⚠️';
-      case 'mantenimiento': return '🔧';
-      case 'operacion': return '⚙️';
-      default: return '📝';
-    }
   };
 
   return (
@@ -132,101 +192,138 @@ export default function BitacoraBiogasPage() {
         />
         
         <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
-          <div className="max-w-6xl mx-auto py-12">
+          <div className="max-w-4xl mx-auto py-12">
             <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold text-white mb-4">Bitácora de Eventos</h1>
-              <p className="text-gray-300 text-lg">Registro de incidencias y eventos del sistema de biogás</p>
+              <h1 className="text-4xl font-bold text-white mb-4">Bitácora de Biogás</h1>
+              <p className="text-gray-300 text-lg">Registro de actividades y eventos del sistema</p>
             </div>
 
-            {/* Formulario para Nuevo Evento */}
-            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-600/30 mb-8">
-              <h2 className="text-xl font-bold text-white mb-4">Registrar Nuevo Evento</h2>
+            {/* Formulario de Registro */}
+            <form onSubmit={handleSubmit} className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-600/30 mb-8">
               
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Tipo de Evento</label>
-                    <select
-                      value={nuevoEvento.tipo}
-                      onChange={(e) => setNuevoEvento(prev => ({ ...prev, tipo: e.target.value as 'incidencia' | 'mantenimiento' | 'operacion' | 'alarma' }))}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="incidencia">⚠️ Incidencia</option>
-                      <option value="alarma">🚨 Alarma</option>
-                      <option value="mantenimiento">🔧 Mantenimiento</option>
-                      <option value="operacion">⚙️ Operación</option>
-                    </select>
-                  </div>
-                  
-                  <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Descripción del Evento</label>
-                    <input
-                      type="text"
-                      value={nuevoEvento.descripcion}
-                      onChange={(e) => setNuevoEvento(prev => ({ ...prev, descripcion: e.target.value }))}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-                      placeholder="Describe el evento o incidencia..."
-                      required
-                    />
+              {/* Transcripción del Operador */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="block text-lg font-medium text-white">
+                    Transcripción del Operador *
+                  </label>
+                  <VoiceRecorder 
+                    onTranscription={handleTranscripcionOperador}
+                    disabled={enviandoFormulario}
+                    size="md"
+                  />
+                </div>
+                <textarea
+                  rows={6}
+                  value={transcripcionOperador}
+                  onChange={(e) => setTranscripcionOperador(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Registra aquí las actividades, eventos y observaciones del turno..."
+                  required
+                />
+                <p className="text-sm text-gray-400 mt-2">
+                  Usa el micrófono para dictar directamente o escribe manualmente
+                </p>
+              </div>
+
+              {/* Informe Ejecutivo */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="block text-lg font-medium text-white">
+                    Informe Ejecutivo *
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    {generandoInforme && (
+                      <div className="flex items-center space-x-2 text-purple-400">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-400"></div>
+                        <span className="text-sm">Generando informe...</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg font-medium transition-all duration-300"
-                >
-                  📝 Registrar Evento
-                </button>
-              </form>
+                <textarea
+                  rows={6}
+                  value={informeEjecutivo}
+                  onChange={(e) => setInformeEjecutivo(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="El informe ejecutivo se generará automáticamente cuando completes la transcripción. Si no se genera, puedes enviar el registro sin él..."
+                  required
+                />
+                <p className="text-sm text-gray-400 mt-2">
+                  La IA generará automáticamente un resumen ejecutivo profesional basado en tu transcripción. Puedes editarlo después si es necesario.
+                </p>
+              </div>
+
+              {/* Botón de Envío */}
+              <button
+                type="submit"
+                disabled={enviandoFormulario || !transcripcionOperador.trim()}
+                className={`w-full px-6 py-3 rounded-lg font-medium transition-all duration-300 transform ${
+                  enviandoFormulario || !transcripcionOperador.trim()
+                    ? 'bg-gray-600 cursor-not-allowed text-gray-300'
+                    : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white hover:scale-105'
+                }`}
+              >
+                {enviandoFormulario ? '📝 Creando registro...' : '📋 Crear Registro de Bitácora'}
+              </button>
+            </form>
+
+            {/* Botón para mostrar/ocultar registros anteriores */}
+            <div className="mb-6">
+              <button
+                onClick={() => setMostrarRegistros(!mostrarRegistros)}
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 transform hover:scale-105"
+              >
+                {mostrarRegistros ? '📁 Ocultar Registros' : '📂 Ver Registros Anteriores'}
+              </button>
             </div>
 
-            {/* Lista de Eventos */}
-            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-600/30">
-              <h2 className="text-xl font-bold text-white mb-6">Historial de Eventos</h2>
-              
-              <div className="space-y-4">
-                {eventos.map((evento) => (
-                  <div key={evento.id} className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <span className="text-lg">{getTipoIcon(evento.tipo)}</span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTipoColor(evento.tipo)}`}>
-                            {evento.tipo.toUpperCase()}
-                          </span>
-                          <span className="text-gray-400 text-sm">
-                            {evento.fecha} - {evento.hora}
-                          </span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(evento.estado)}`}>
-                            {evento.estado.replace('_', ' ').toUpperCase()}
-                          </span>
+            {/* Lista de Registros Anteriores */}
+            {mostrarRegistros && (
+              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-600/30">
+                <h2 className="text-2xl font-bold text-white mb-6">Registros Anteriores</h2>
+                
+                {cargandoRegistros ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                    <span className="ml-3 text-gray-300">Cargando registros...</span>
+                  </div>
+                ) : registrosBitacora.length === 0 ? (
+                  <p className="text-gray-400 text-center py-8">No hay registros anteriores</p>
+                ) : (
+                  <div className="space-y-6">
+                    {registrosBitacora.map((registro) => (
+                      <div key={registro.id} className="bg-gray-700/30 rounded-lg p-6 border border-gray-600/30">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <p className="text-sm text-gray-400">
+                              {formatearFecha(registro.fields['Fecha de creacion'])}
+                            </p>
+                            <p className="text-sm text-green-400">
+                              Operador: {registro.fields['Realiza Registro']}
+                            </p>
+                          </div>
                         </div>
                         
-                        <p className="text-white mb-2">{evento.descripcion}</p>
+                        <div className="mb-4">
+                          <h4 className="text-white font-medium mb-2">Transcripción del Operador:</h4>
+                          <p className="text-gray-300 text-sm leading-relaxed">
+                            {registro.fields['Transcripción Operador']}
+                          </p>
+                        </div>
                         
-                        <p className="text-gray-400 text-sm">
-                          Registrado por: <span className="text-blue-400">{evento.operador}</span>
-                        </p>
+                        <div>
+                          <h4 className="text-white font-medium mb-2">Informe Ejecutivo:</h4>
+                          <p className="text-gray-300 text-sm leading-relaxed">
+                            {registro.fields['Informe ejecutivo']}
+                          </p>
+                        </div>
                       </div>
-                      
-                      <div className="ml-4">
-                        {evento.estado !== 'resuelto' && (
-                          <button className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white text-sm rounded transition-colors">
-                            Marcar Resuelto
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-              
-              {eventos.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-400">No hay eventos registrados</p>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </main>
 

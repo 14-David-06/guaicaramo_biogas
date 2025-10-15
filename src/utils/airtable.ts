@@ -5,11 +5,16 @@ const AIRTABLE_BASE_ID = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID || process.env
 
 // IDs de tablas desde variables de entorno
 const TURNOS_TABLE_ID = process.env.NEXT_PUBLIC_TURNOS_TABLE_ID;
+const TURNOS_ALTERNATIVE_TABLE_ID = process.env.NEXT_PUBLIC_TURNOS_ALTERNATIVE_TABLE_ID;
 const EQUIPO_BIOGAS_TABLE_ID = process.env.NEXT_PUBLIC_EQUIPO_BIOGAS_TABLE_ID;
 const MOTORES_TABLE_ID = process.env.NEXT_PUBLIC_MOTORES_TABLE_ID;
 const ESTADOS_MOTORES_TABLE_ID = process.env.NEXT_PUBLIC_ESTADOS_MOTORES_TABLE_ID;
 const PROTOCOLO_ENCENDIDO_TABLE_ID = process.env.NEXT_PUBLIC_PROTOCOLO_ENCENDIDO_TABLE_ID;
 const MONITOREO_MOTORES_TABLE_ID = process.env.NEXT_PUBLIC_MONITOREO_MOTORES_TABLE_ID;
+const REGISTRO_DIARIOS_JENBACHER_TABLE_ID = process.env.NEXT_PUBLIC_REGISTRO_DIARIOS_JENBACHER_TABLE_ID;
+const BIODIGESTORES_TABLE_ID = process.env.NEXT_PUBLIC_BIODIGESTORES_TABLE_ID;
+const BITACORA_BIOGAS_TABLE_ID = process.env.NEXT_PUBLIC_BITACORA_BIOGAS_TABLE_ID;
+const MEDICION_BIODIGESTORES_TABLE_ID = process.env.NEXT_PUBLIC_MEDICION_BIODIGESTORES_TABLE_ID;
 
 // Debug de configuración
 console.log('=== DEBUG AIRTABLE CONFIG ===');
@@ -40,11 +45,16 @@ console.log('Protocolo Encendido Table ID:', PROTOCOLO_ENCENDIDO_TABLE_ID);
 console.log('Monitoreo Motores Table ID:', MONITOREO_MOTORES_TABLE_ID);
 
 const AIRTABLE_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${TURNOS_TABLE_ID}`;
+const AIRTABLE_ALTERNATIVE_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${TURNOS_ALTERNATIVE_TABLE_ID}`;
 const EQUIPO_BIOGAS_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${EQUIPO_BIOGAS_TABLE_ID}`;
 const MOTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${MOTORES_TABLE_ID}`;
 const ESTADOS_MOTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${ESTADOS_MOTORES_TABLE_ID}`;
 const PROTOCOLO_ENCENDIDO_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${PROTOCOLO_ENCENDIDO_TABLE_ID}`;
 const MONITOREO_MOTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${MONITOREO_MOTORES_TABLE_ID}`;
+const REGISTRO_DIARIOS_JENBACHER_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${REGISTRO_DIARIOS_JENBACHER_TABLE_ID}`;
+const BIODIGESTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${BIODIGESTORES_TABLE_ID}`;
+const BITACORA_BIOGAS_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${BITACORA_BIOGAS_TABLE_ID}`;
+const MEDICION_BIODIGESTORES_API_URL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${MEDICION_BIODIGESTORES_TABLE_ID}`;
 
 console.log('Turnos API URL:', AIRTABLE_API_URL);
 console.log('Equipo BioGas API URL:', EQUIPO_BIOGAS_API_URL);
@@ -52,6 +62,10 @@ console.log('Motores API URL:', MOTORES_API_URL);
 console.log('Estados Motores API URL:', ESTADOS_MOTORES_API_URL);
 console.log('Protocolo Encendido API URL:', PROTOCOLO_ENCENDIDO_API_URL);
 console.log('Monitoreo Motores API URL:', MONITOREO_MOTORES_API_URL);
+console.log('Registro Diarios Jenbacher API URL:', REGISTRO_DIARIOS_JENBACHER_API_URL);
+console.log('Biodigestores API URL:', BIODIGESTORES_API_URL);
+console.log('Bitacora Biogas API URL:', BITACORA_BIOGAS_API_URL);
+console.log('Medicion Biodigestores API URL:', MEDICION_BIODIGESTORES_API_URL);
 console.log('Protocolo Encendido API URL:', PROTOCOLO_ENCENDIDO_API_URL);
 
 export interface TurnoOperador {
@@ -165,6 +179,71 @@ export interface MonitoreoMotor {
     'Realiza Registro': string;
     'Turnos Operadores'?: string[];
     'Estados Motores'?: string[];
+    [key: string]: string | string[] | number | boolean | undefined;
+  };
+}
+
+export interface RegistroDiariosJenbacher {
+  id?: string;
+  fields: {
+    'METANO(CH4)%': number;
+    'OXIGENO(O2) %': number;
+    'DIOXIDO DE CARBONO(CO2) %': number;
+    'ACIDO SULFIDRICO(H2S)': number;
+    'POTENCIA GENERADA(Kw)': number;
+    'M3 DE BIOGAS (M3)': number;
+    'PRESION BIOFILTRO ENTRADA (cm de h20)': number;
+    'PRESION BIOFILTRO SALIDA (cm de h2o)': number;
+    'TEMP. ENTRADA BIOFILTRO': number;
+    'TEMP. SALIDA BIOFILTRO': number;
+    'Realiza Registro': string;
+    'Turno'?: string[];
+    'Biodigestores Usados'?: string[];
+    'Estados Motores'?: string[];
+    'Monitoreo Motores'?: string[];
+    [key: string]: string | string[] | number | boolean | undefined;
+  };
+}
+
+export interface Biodigestor {
+  id: string;
+  fields: {
+    'ID': string;
+    'Nombre Biodigestores': string;
+    'Registro Diario Jenbacher'?: string[];
+    'Registro Medicion Biodigestores'?: string[];
+    'Copia de Registro Diario Jenbacher'?: string[];
+    [key: string]: string | string[] | number | boolean | undefined;
+  };
+}
+
+export interface BitacoraBiogas {
+  id?: string;
+  fields: {
+    'ID': string;
+    'Fecha de creacion': string;
+    'Transcripción Operador': string;
+    'Informe ejecutivo': string;
+    'Realiza Registro': string;
+    'Turno Operador'?: string[];
+    [key: string]: string | string[] | number | boolean | undefined;
+  };
+}
+
+export interface MedicionBiodigestores {
+  id?: string;
+  fields: {
+    'ID': string;
+    'Fecha Medicion': string;
+    'CH4 (Max) %': number;
+    'CO2 %': number;
+    '02 %': number;
+    'H2S': number;
+    'CO': number;
+    'NO': number;
+    'Realiza Registro': string;
+    'Turno Biogas'?: string[];
+    'Biodigestor Monitoreado'?: string[];
     [key: string]: string | string[] | number | boolean | undefined;
   };
 }
@@ -731,6 +810,341 @@ export const airtableService = {
     } catch (error) {
       console.error('Error al registrar nuevo monitoreo:', error);
       throw error;
+    }
+  },
+
+  // Obtener todos los biodigestores
+  async obtenerBiodigestores(): Promise<Biodigestor[]> {
+    try {
+      const response = await fetch(BIODIGESTORES_API_URL, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al obtener biodigestores:', errorText);
+        throw new Error(`Error al obtener biodigestores: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('=== DEBUG BIODIGESTORES OBTENIDOS ===');
+      console.log('Biodigestores data:', JSON.stringify(data, null, 2));
+      console.log('Records count:', data.records?.length || 0);
+      if (data.records && data.records.length > 0) {
+        console.log('Primer biodigestor:', JSON.stringify(data.records[0], null, 2));
+      }
+      return data.records || [];
+    } catch (error) {
+      console.error('Error al obtener biodigestores:', error);
+      throw error;
+    }
+  },
+
+  // Obtener el turno actual activo desde tabla alternativa
+  async obtenerTurnoActualAlternativo(): Promise<any> {
+    try {
+      console.log('Intentando obtener turno de tabla alternativa:', TURNOS_ALTERNATIVE_TABLE_ID);
+      const response = await fetch(`${AIRTABLE_ALTERNATIVE_API_URL}?maxRecords=5`, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al obtener turno alternativo:', errorText);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('=== TURNOS TABLA ALTERNATIVA ===');
+      console.log('Datos de la tabla alternativa:', JSON.stringify(data, null, 2));
+      return data.records && data.records.length > 0 ? data.records[0] : null;
+    } catch (error) {
+      console.error('Error al obtener turno alternativo:', error);
+      return null;
+    }
+  },
+
+  // Obtener el turno actual activo
+  async obtenerTurnoActual(): Promise<TurnoOperador | null> {
+    try {
+      // Filtrar por turnos que tienen fecha de inicio pero no fecha de fin (turnos activos)
+      const filterFormula = `AND({${FIELD_IDS.FECHA_INICIO}} != '', {${FIELD_IDS.FECHA_FIN}} = '')`;
+      const url = `${AIRTABLE_API_URL}?filterByFormula=${encodeURIComponent(filterFormula)}&maxRecords=1&sort[0][field]=${FIELD_IDS.FECHA_INICIO}&sort[0][direction]=desc`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al obtener turno actual:', errorText);
+        throw new Error(`Error al obtener turno actual: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Turno actual encontrado:', data);
+      return data.records && data.records.length > 0 ? data.records[0] : null;
+    } catch (error) {
+      console.error('Error al obtener turno actual:', error);
+      throw error;
+    }
+  },
+
+  // Crear un nuevo registro diario de Jenbacher
+  async crearRegistroDiariosJenbacher(
+    operadorNombre: string,
+    estadoMotorId: string,
+    monitoreoMotorId: string,
+    biodigestoresSeleccionados: string[],
+    parametros: {
+      metano: number;
+      oxigeno: number;
+      dioxidoCarbono: number;
+      acidoSulfidrico: number;
+      potenciaGenerada: number;
+      m3Biogas: number;
+      presionBiofiltroEntrada: number;
+      presionBiofiltroSalida: number;
+      tempEntradaBiofiltro: number;
+      tempSalidaBiofiltro: number;
+    }
+  ): Promise<RegistroDiariosJenbacher> {
+    try {
+      // Obtener el turno actual
+      const turnoActual = await this.obtenerTurnoActual();
+      
+      const data = {
+        fields: {
+          'METANO(CH4)%': parametros.metano,
+          'OXIGENO(O2) %': parametros.oxigeno,
+          'DIOXIDO DE CARBONO(CO2) %': parametros.dioxidoCarbono,
+          'ACIDO SULFIDRICO(H2S)': parametros.acidoSulfidrico,
+          'POTENCIA GENERADA(Kw)': parametros.potenciaGenerada,
+          'M3 DE BIOGAS (M3)': parametros.m3Biogas,
+          'PRESION BIOFILTRO ENTRADA (cm de h20)': parametros.presionBiofiltroEntrada,
+          'PRESION BIOFILTRO SALIDA (cm de h2o)': parametros.presionBiofiltroSalida,
+          'TEMP. ENTRADA BIOFILTRO': parametros.tempEntradaBiofiltro,
+          'TEMP. SALIDA BIOFILTRO': parametros.tempSalidaBiofiltro,
+          'Realiza Registro': operadorNombre,
+          'Estados Motores': [estadoMotorId],
+          'Monitoreo Motores': [monitoreoMotorId],
+          'Biodigestores Usados': biodigestoresSeleccionados,
+          ...(turnoActual && { 'Turno': [turnoActual.id!] })
+        }
+      };
+
+      console.log('Creando registro diario Jenbacher con data:', data);
+
+      const response = await fetch(REGISTRO_DIARIOS_JENBACHER_API_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al crear registro diario Jenbacher:', errorText);
+        throw new Error(`Error al crear registro diario Jenbacher: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Registro diario Jenbacher creado exitosamente:', result);
+      return result;
+    } catch (error) {
+      console.error('Error al crear registro diario Jenbacher:', error);
+      throw error;
+    }
+  },
+
+  // Crear un nuevo registro en la bitácora de biogas
+  async crearBitacoraBiogas(
+    transcripcionOperador: string,
+    informeEjecutivo: string,
+    operadorNombre: string
+  ): Promise<BitacoraBiogas> {
+    try {
+      // Obtener el turno actual
+      const turnoActual = await this.obtenerTurnoActual();
+      
+      const data = {
+        fields: {
+          'Transcripción Operador': transcripcionOperador,
+          'Informe ejecutivo': informeEjecutivo,
+          'Realiza Registro': operadorNombre,
+          ...(turnoActual && { 'Turno Operador': [turnoActual.id!] })
+        }
+      };
+
+      console.log('Creando registro de bitácora biogas con data:', data);
+
+      const response = await fetch(BITACORA_BIOGAS_API_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al crear bitácora biogas:', errorText);
+        throw new Error(`Error al crear bitácora biogas: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Bitácora biogas creada exitosamente:', result);
+      return result;
+    } catch (error) {
+      console.error('Error al crear bitácora biogas:', error);
+      throw error;
+    }
+  },
+
+  // Obtener registros de bitácora biogas
+  async obtenerBitacoraBiogas(): Promise<BitacoraBiogas[]> {
+    try {
+      const response = await fetch(`${BITACORA_BIOGAS_API_URL}?sort[0][field]=Fecha de creacion&sort[0][direction]=desc`, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al obtener bitácora biogas:', errorText);
+        throw new Error(`Error al obtener bitácora biogas: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Bitácora biogas obtenida:', data);
+      return data.records || [];
+    } catch (error) {
+      console.error('Error al obtener bitácora biogas:', error);
+      throw error;
+    }
+  },
+
+  // Crear medición de biodigestores
+  async crearMedicionBiodigestores(
+    ch4: number,
+    co2: number,
+    o2: number,
+    h2s: number,
+    co: number,
+    no: number,
+    realizaRegistro: string,
+    biodigestorMonitoreado?: string[]
+  ): Promise<MedicionBiodigestores> {
+    try {
+      // Usar la tabla de turnos original - el campo está configurado para enlazar a ella
+      const turnoActivo = await this.obtenerTurnoActual();
+      let turnoId: string[] = [];
+
+      if (turnoActivo) {
+        turnoId = [turnoActivo.id!];
+        console.log('Usando turno de tabla original:', turnoActivo.id);
+      } else {
+        console.log('No se encontró turno activo en tabla original');
+      }
+
+      console.log('=== DEBUG MEDICION BIODIGESTORES ===');
+      console.log('Biodigestor seleccionado:', biodigestorMonitoreado);
+      console.log('Turno activo completo:', turnoActivo);
+      console.log('Turno activo ID:', turnoId);
+      console.log('BIODIGESTORES_TABLE_ID:', BIODIGESTORES_TABLE_ID);
+      console.log('MEDICION_BIODIGESTORES_TABLE_ID:', MEDICION_BIODIGESTORES_TABLE_ID);
+      console.log('TURNOS_TABLE_ID (original):', TURNOS_TABLE_ID);
+
+      const data = {
+        fields: {
+          'CH4 (Max) %': ch4,
+          'CO2 %': co2,
+          '02 %': o2,
+          'H2S': h2s,
+          'CO': co,
+          'NO': no,
+          'Realiza Registro': realizaRegistro,
+          'Biodigestor Monitoreado': biodigestorMonitoreado || [],
+          // Solo incluir turno si existe uno activo
+          ...(turnoId.length > 0 && { 'Turno Biogas': turnoId })
+        }
+      };
+
+      console.log('=== DEBUG MEDICION BIODIGESTORES ===');
+      console.log('Biodigestor seleccionado:', biodigestorMonitoreado);
+      console.log('Turno activo completo:', turnoActivo);
+      console.log('Turno activo ID:', turnoId);
+      console.log('BIODIGESTORES_TABLE_ID:', BIODIGESTORES_TABLE_ID);
+      console.log('MEDICION_BIODIGESTORES_TABLE_ID:', MEDICION_BIODIGESTORES_TABLE_ID);
+      console.log('TURNOS_TABLE_ID (original):', TURNOS_TABLE_ID);
+      console.log('Datos a enviar para medición:', JSON.stringify(data, null, 2));
+
+      const response = await fetch(MEDICION_BIODIGESTORES_API_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al crear medición de biodigestores:', errorText);
+        throw new Error(`Error al crear medición de biodigestores: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Medición de biodigestores creada exitosamente:', result);
+      return result;
+    } catch (error) {
+      console.error('Error al crear medición de biodigestores:', error);
+      throw error;
+    }
+  },
+
+  // Obtener mediciones de biodigestores
+  async obtenerMedicionesBiodigestores(): Promise<MedicionBiodigestores[]> {
+    try {
+      const response = await fetch(`${MEDICION_BIODIGESTORES_API_URL}?sort[0][field]=Fecha Medicion&sort[0][direction]=desc`, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al obtener mediciones de biodigestores:', errorText);
+        throw new Error(`Error al obtener mediciones de biodigestores: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Mediciones de biodigestores obtenidas:', data);
+      return data.records || [];
+    } catch (error) {
+      console.error('Error al obtener mediciones de biodigestores:', error);
+      throw error;
+    }
+  },
+
+  // Función de debug para explorar tabla desconocida
+  async explorarTablaDesconocida(): Promise<any> {
+    try {
+      const tablaDesconocidaUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/tbl07sqkXKq1O03dA`;
+      const response = await fetch(tablaDesconocidaUrl, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al explorar tabla desconocida:', errorText);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('=== TABLA DESCONOCIDA tbl07sqkXKq1O03dA ===');
+      console.log('Datos de la tabla:', JSON.stringify(data, null, 2));
+      return data.records || [];
+    } catch (error) {
+      console.error('Error al explorar tabla desconocida:', error);
+      return null;
     }
   }
 };
