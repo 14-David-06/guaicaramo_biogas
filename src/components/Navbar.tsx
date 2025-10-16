@@ -48,11 +48,12 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-4">
               <Image
-                src="/logo-guaicaramo.png"
+                src="/logo-Guaicaramo.png"
                 alt="Logo Guaicaramo"
                 width={80}
                 height={36}
-                className="h-12 w-auto"
+                className="h-8 sm:h-10 md:h-12 w-auto object-contain"
+                priority
               />
             </div>
             <div className="hidden md:flex items-center space-x-6">
@@ -158,11 +159,12 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-300"
             >
               <Image
-                src="/logo-guaicaramo.png"
+                src="/logo-Guaicaramo.png"
                 alt="Logo Guaicaramo"
                 width={80}
                 height={36}
-                className="h-12 w-auto object-contain transition-transform duration-200"
+                className="h-8 sm:h-10 md:h-12 w-auto object-contain transition-transform duration-200"
+                priority
               />
             </button>
           </div>
