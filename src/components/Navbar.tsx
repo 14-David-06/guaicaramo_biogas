@@ -53,7 +53,6 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
                 width={80}
                 height={36}
                 className="h-8 sm:h-10 md:h-12 w-auto object-contain"
-                priority
               />
             </div>
             <div className="hidden md:flex items-center space-x-6">
@@ -164,7 +163,6 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
                 width={80}
                 height={36}
                 className="h-8 sm:h-10 md:h-12 w-auto object-contain transition-transform duration-200"
-                priority
               />
             </button>
           </div>

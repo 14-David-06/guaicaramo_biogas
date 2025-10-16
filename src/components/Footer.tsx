@@ -15,7 +15,6 @@ export default function Footer() {
                 width={280}
                 height={120}
                 className="h-10 sm:h-12 md:h-14 w-auto object-contain opacity-90"
-                priority
               />
             </div>
 
