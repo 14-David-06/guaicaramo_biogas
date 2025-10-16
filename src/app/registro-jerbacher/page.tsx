@@ -5,8 +5,8 @@ import Footer from '@/components/Footer';
 import BackgroundLayout from '@/components/BackgroundLayout';
 import TurnoGuard from '@/components/TurnoGuard';
 import { useAuth } from '@/hooks/useAuth';
-import { useState, useEffect } from 'react';
-import { airtableService, Motor, EstadoMotor, MonitoreoMotor, RegistroDiariosJenbacher, Biodigestor } from '@/utils/airtable';
+import { useState, useEffect, useCallback } from 'react';
+import { airtableService, Motor, Biodigestor } from '@/utils/airtable';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { useRouter } from 'next/navigation';
 
@@ -15,7 +15,6 @@ export default function RegistroJerbacherPage() {
   const router = useRouter();
 
   // Estado para motores
-  const [motores, setMotores] = useState<Motor[]>([]);
   const [motoresValidos, setMotoresValidos] = useState<Motor[]>([]);
   const [motorSeleccionado, setMotorSeleccionado] = useState<string>('');
   const [cargandoMotores, setCargandoMotores] = useState(true);
@@ -32,12 +31,8 @@ export default function RegistroJerbacherPage() {
     isRecording,
     isTranscribing,
     startRecording,
-    stopRecording,
-    error: voiceError
+    stopRecording
   } = useVoiceRecording();
-
-  // Estado para la transcripción
-  const [ultimaTranscripcion, setUltimaTranscripcion] = useState<string>('');
 
   const [parametros, setParametros] = useState({
     metano: '',
@@ -75,13 +70,12 @@ export default function RegistroJerbacherPage() {
   };
 
   // Función para validar motores
-  const validarMotores = async () => {
+  const validarMotores = useCallback(async () => {
     setCargandoMotores(true);
     setMensajeValidacion('');
     
     try {
       const todosLosMotores = await airtableService.obtenerMotores();
-      setMotores(todosLosMotores);
       
       const motoresCalificados: Motor[] = [];
       
@@ -110,13 +104,13 @@ export default function RegistroJerbacherPage() {
     } finally {
       setCargandoMotores(false);
     }
-  };
+  }, []);
 
   // useEffect para cargar motores al montar el componente
   useEffect(() => {
     validarMotores();
     cargarBiodigestores();
-  }, []);
+  }, [validarMotores]);
 
   // Función para cargar biodigestores
   const cargarBiodigestores = async () => {
@@ -145,7 +139,6 @@ export default function RegistroJerbacherPage() {
     if (isRecording) {
       try {
         const transcripcion = await stopRecording();
-        setUltimaTranscripcion(transcripcion);
         procesarTranscripcion(transcripcion);
       } catch (error) {
         console.error('Error al detener grabación:', error);
@@ -187,7 +180,7 @@ export default function RegistroJerbacherPage() {
       m3Biogas: /(\d+(?:[.,]\d+)?)[^\d]*(?:m3|metros c[úu]bicos|biogas)/i
     };
 
-    const valoresExtraidos: any = {};
+    const valoresExtraidos: Record<string, string> = {};
     
     // Intentar con patrones principales
     Object.entries(patrones).forEach(([campo, patron]) => {
@@ -383,7 +376,7 @@ export default function RegistroJerbacherPage() {
                           </div>
                           <div className="mt-4 p-3 bg-blue-800/30 border border-blue-600/30 rounded-lg">
                             <p className="text-blue-200 text-sm mb-3">
-                              💡 <strong>Sugerencia:</strong> Ve primero a "Monitoreo de Motores" para encender un motor y registrar sus datos de monitoreo.
+                              💡 <strong>Sugerencia:</strong> Ve primero a &quot;Monitoreo de Motores&quot; para encender un motor y registrar sus datos de monitoreo.
                             </p>
                             <button
                               type="button"

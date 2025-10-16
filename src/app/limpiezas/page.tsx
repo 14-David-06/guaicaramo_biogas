@@ -228,7 +228,7 @@ export default function LimpiezasPage() {
                     Limpiar Todo
                   </button>
                   <div className="text-sm text-gray-300 flex items-center">
-                    💡 Tip: Usa "Todo Limpio" si todas las áreas están en buen estado
+                    💡 Tip: Usa &quot;Todo Limpio&quot; si todas las áreas están en buen estado
                   </div>
                 </div>
                 

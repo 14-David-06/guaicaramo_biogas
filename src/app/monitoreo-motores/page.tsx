@@ -7,7 +7,7 @@ import TurnoGuard from '@/components/TurnoGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { useFormPersistence } from '@/hooks/useFormPersistence';
-import { airtableService, Motor, EstadoMotor, MonitoreoMotor } from '@/utils/airtable';
+import { airtableService, Motor, EstadoMotor } from '@/utils/airtable';
 import { useState, useEffect } from 'react';
 
 interface MotorConEstado {

@@ -863,7 +863,7 @@ export const airtableService = {
   },
 
   // Obtener el turno actual activo desde tabla alternativa
-  async obtenerTurnoActualAlternativo(): Promise<any> {
+  async obtenerTurnoActualAlternativo(): Promise<unknown> {
     try {
       console.log('Intentando obtener turno de tabla alternativa:', TURNOS_ALTERNATIVE_TABLE_ID);
       const response = await fetch(`${AIRTABLE_ALTERNATIVE_API_URL}?maxRecords=5`, {
@@ -1145,7 +1145,7 @@ export const airtableService = {
   },
 
   // Función de debug para explorar tabla desconocida
-  async explorarTablaDesconocida(): Promise<any> {
+  async explorarTablaDesconocida(): Promise<unknown> {
     try {
       const tablaDesconocidaUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/tbl07sqkXKq1O03dA`;
       const response = await fetch(tablaDesconocidaUrl, {

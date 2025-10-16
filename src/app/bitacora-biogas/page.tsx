@@ -6,7 +6,7 @@ import BackgroundLayout from '@/components/BackgroundLayout';
 import TurnoGuard from '@/components/TurnoGuard';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import { useAuth } from '@/hooks/useAuth';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { airtableService, BitacoraBiogas } from '@/utils/airtable';
 
 export default function BitacoraBiogasPage() {
@@ -37,7 +37,7 @@ export default function BitacoraBiogasPage() {
   };
 
   // Generar informe ejecutivo automáticamente usando IA
-  const generarInformeEjecutivo = async () => {
+  const generarInformeEjecutivo = useCallback(async () => {
     if (!transcripcionOperador.trim() || !loggedInUser || generandoInforme) {
       return;
     }
@@ -83,7 +83,7 @@ export default function BitacoraBiogasPage() {
     } finally {
       setGenerandoInforme(false);
     }
-  };
+  }, [transcripcionOperador, loggedInUser, generandoInforme]);
 
   // Cargar registros al montar el componente
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function BitacoraBiogasPage() {
     }, 1500); // Reducido a 1.5 segundos
 
     return () => clearTimeout(timeoutId);
-  }, [transcripcionOperador, informeEjecutivo, generandoInforme]);
+  }, [transcripcionOperador, informeEjecutivo, generandoInforme, generarInformeEjecutivo]);
 
   // Manejar transcripción de voz para transcripción del operador
   const handleTranscripcionOperador = (texto: string) => {

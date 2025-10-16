@@ -1,7 +1,6 @@
 'use client';
 
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
-import { useState } from 'react';
 
 interface VoiceRecorderProps {
   onTranscription: (text: string) => void;
@@ -24,14 +23,11 @@ export default function VoiceRecorder({
     error: voiceError
   } = useVoiceRecording();
 
-  const [ultimaTranscripcion, setUltimaTranscripcion] = useState<string>('');
-
   // Función para manejar la grabación de voz
   const handleVoiceRecording = async () => {
     if (isRecording) {
       try {
         const transcripcion = await stopRecording();
-        setUltimaTranscripcion(transcripcion);
         onTranscription(transcripcion);
       } catch (error) {
         console.error('Error al detener grabación:', error);
