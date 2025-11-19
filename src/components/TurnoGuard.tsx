@@ -58,10 +58,6 @@ export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoG
     };
 
     verificarTurnoActivo();
-
-    // Verificar cada 30 segundos
-    const interval = setInterval(verificarTurnoActivo, 30000);
-    return () => clearInterval(interval);
   }, [user]);
 
   // Mostrar loading

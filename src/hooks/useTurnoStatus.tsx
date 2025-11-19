@@ -90,10 +90,6 @@ export function useTurnoStatus(): TurnoStatus {
 
   useEffect(() => {
     verificarTurno();
-
-    // Verificar cada 15 segundos
-    const interval = setInterval(verificarTurno, 15000);
-    return () => clearInterval(interval);
   }, [verificarTurno]);
 
   return status;
