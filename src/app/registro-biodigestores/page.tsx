@@ -6,6 +6,7 @@ import BackgroundLayout from '@/components/BackgroundLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { airtableService, MedicionBiodigestores, Biodigestor } from '@/utils/airtable';
+import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 
 export default function RegistroBiodigestoresPage() {
   const { user: loggedInUser, logout } = useAuth();
@@ -26,6 +27,14 @@ export default function RegistroBiodigestoresPage() {
   const [cargandoBiodigestores, setCargandoBiodigestores] = useState(true);
   const [cargandoMediciones, setCargandoMediciones] = useState(true);
   const [mostrarMediciones, setMostrarMediciones] = useState(false);
+
+  // Hook para grabación de voz
+  const {
+    isRecording,
+    isTranscribing,
+    startRecording,
+    stopRecording
+  } = useVoiceRecording();
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -147,6 +156,124 @@ export default function RegistroBiodigestoresPage() {
     });
   };
 
+  // Función para manejar la grabación de voz
+  const handleVoiceRecording = async () => {
+    if (isRecording) {
+      try {
+        const transcripcion = await stopRecording();
+        procesarTranscripcion(transcripcion);
+      } catch (error) {
+        console.error('Error al detener grabación:', error);
+      }
+    } else {
+      try {
+        await startRecording();
+      } catch (error) {
+        console.error('Error al iniciar grabación:', error);
+      }
+    }
+  };
+
+  // Función para procesar la transcripción y extraer valores
+  const procesarTranscripcion = (transcripcion: string) => {
+    const texto = transcripcion.toLowerCase();
+    
+    // Patrones para extraer valores numéricos de gases
+    const patrones = {
+      ch4: /(?:ch4|metano)[^\d]*(\d+(?:[.,]\d+)?)/i,
+      co2: /(?:co2|di[óo]xido|carbono)[^\d]*(\d+(?:[.,]\d+)?)/i,
+      o2: /(?:o2|ox[íi]geno)[^\d]*(\d+(?:[.,]\d+)?)/i,
+      h2s: /(?:h2s|[áa]cido sulfh[íi]drico|sulfh[íi]drico)[^\d]*(\d+(?:[.,]\d+)?)/i,
+      co: /(?:co|mon[óo]xido)[^\d]*(\d+(?:[.,]\d+)?)/i,
+      no: /(?:no|[óo]xido n[íi]trico)[^\d]*(\d+(?:[.,]\d+)?)/i
+    };
+
+    // Patrones alternativos si los primeros no funcionan
+    const patronesAlternativos = {
+      ch4: /(\d+(?:[.,]\d+)?)[^\d]*(?:ch4|metano)/i,
+      co2: /(\d+(?:[.,]\d+)?)[^\d]*(?:co2|di[óo]xido|carbono)/i,
+      o2: /(\d+(?:[.,]\d+)?)[^\d]*(?:o2|ox[íi]geno)/i,
+      h2s: /(\d+(?:[.,]\d+)?)[^\d]*(?:h2s|[áa]cido sulfh[íi]drico)/i,
+      co: /(\d+(?:[.,]\d+)?)[^\d]*(?:co|mon[óo]xido)/i,
+      no: /(\d+(?:[.,]\d+)?)[^\d]*(?:no|[óo]xido n[íi]trico)/i
+    };
+
+    const valoresExtraidos: Record<string, string> = {};
+    
+    // Intentar con patrones principales
+    Object.entries(patrones).forEach(([campo, patron]) => {
+      const match = texto.match(patron);
+      if (match && match[1]) {
+        valoresExtraidos[campo] = match[1].replace(',', '.');
+      }
+    });
+
+    // Si no encontró suficientes valores, intentar con patrones alternativos
+    if (Object.keys(valoresExtraidos).length < 3) {
+      Object.entries(patronesAlternativos).forEach(([campo, patron]) => {
+        if (!valoresExtraidos[campo]) {
+          const match = texto.match(patron);
+          if (match && match[1]) {
+            valoresExtraidos[campo] = match[1].replace(',', '.');
+          }
+        }
+      });
+    }
+
+    // Buscar biodigestor mencionado en la transcripción
+    let biodigestorEncontrado: Biodigestor | null = null;
+    
+    // Primero intentar coincidencia exacta
+    for (const biodigestor of biodigestores) {
+      const nombreBiodigestor = biodigestor.fields['Nombre Biodigestores']?.toLowerCase();
+      if (nombreBiodigestor && texto.includes(nombreBiodigestor)) {
+        biodigestorEncontrado = biodigestor;
+        break;
+      }
+    }
+    
+    // Si no encontró coincidencia exacta, intentar con patrones más flexibles
+    if (!biodigestorEncontrado) {
+      const patronesBiodigestor = [
+        /biodigestor\s*(\d+)/i,  // "biodigestor 1", "biodigestor 2", etc.
+        /digestor\s*(\d+)/i,     // "digestor 1", "digestor 2", etc.
+        /tanque\s*(\d+)/i,       // "tanque 1", "tanque 2", etc.
+        /(\d+)/i                 // Solo números
+      ];
+      
+      for (const patron of patronesBiodigestor) {
+        const match = texto.match(patron);
+        if (match && match[1]) {
+          const numero = match[1];
+          // Buscar biodigestor que contenga ese número en su nombre
+          for (const biodigestor of biodigestores) {
+            const nombreBiodigestor = biodigestor.fields['Nombre Biodigestores']?.toLowerCase();
+            if (nombreBiodigestor && (nombreBiodigestor.includes(numero) || nombreBiodigestor.includes(` ${numero}`))) {
+              biodigestorEncontrado = biodigestor;
+              break;
+            }
+          }
+          if (biodigestorEncontrado) break;
+        }
+      }
+    }
+
+    // Actualizar los campos con los valores encontrados
+    if (Object.keys(valoresExtraidos).length > 0) {
+      if (valoresExtraidos.ch4) setCh4(valoresExtraidos.ch4);
+      if (valoresExtraidos.co2) setCo2(valoresExtraidos.co2);
+      if (valoresExtraidos.o2) setO2(valoresExtraidos.o2);
+      if (valoresExtraidos.h2s) setH2s(valoresExtraidos.h2s);
+      if (valoresExtraidos.co) setCo(valoresExtraidos.co);
+      if (valoresExtraidos.no) setNo(valoresExtraidos.no);
+    }
+
+    // Seleccionar biodigestor si se encontró uno
+    if (biodigestorEncontrado) {
+      setBiodigestorSeleccionado(biodigestorEncontrado.id);
+    }
+  };
+
   return (
     <BackgroundLayout>
       <div className="min-h-screen flex flex-col">
@@ -165,6 +292,37 @@ export default function RegistroBiodigestoresPage() {
 
           {/* Formulario de Medición */}
           <form onSubmit={handleSubmit} className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-600/30 mb-8">
+            
+            {/* Botón de Micrófono */}
+            <div className="mb-6 flex justify-center">
+              <button
+                type="button"
+                onClick={handleVoiceRecording}
+                disabled={enviandoFormulario}
+                className={`flex items-center justify-center w-16 h-16 rounded-full transition-all duration-300 transform hover:scale-105 ${
+                  isRecording 
+                    ? 'bg-red-600 hover:bg-red-500 animate-pulse' 
+                    : isTranscribing
+                      ? 'bg-yellow-600 cursor-not-allowed'
+                      : 'bg-purple-600 hover:bg-purple-500'
+                }`}
+              >
+                {isRecording ? (
+                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd"/>
+                  </svg>
+                ) : isTranscribing ? (
+                  <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                ) : (
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                  </svg>
+                )}
+              </button>
+            </div>
             
             {/* Mediciones de Gases */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
