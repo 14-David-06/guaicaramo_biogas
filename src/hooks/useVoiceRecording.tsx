@@ -108,17 +108,14 @@ export const useVoiceRecording = (): UseVoiceRecordingResult => {
       formData.append('language', 'es'); // Español
       formData.append('response_format', 'text');
 
-      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      const response = await fetch('/api/transcribe', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
-        },
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('OpenAI API Error:', errorData);
+        console.error('Transcription API Error:', errorData);
         throw new Error(`Error de transcripción: ${response.status}`);
       }
 

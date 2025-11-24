@@ -176,6 +176,7 @@ export default function RegistroBiodigestoresPage() {
 
   // Función para procesar la transcripción y extraer valores
   const procesarTranscripcion = (transcripcion: string) => {
+    console.log('Transcripción completa:', transcripcion);
     const texto = transcripcion.toLowerCase();
     
     // Patrones para extraer valores numéricos de gases
@@ -183,8 +184,8 @@ export default function RegistroBiodigestoresPage() {
       ch4: /(?:ch4|metano)[^\d]*(\d+(?:[.,]\d+)?)/i,
       co2: /(?:co2|di[óo]xido|carbono)[^\d]*(\d+(?:[.,]\d+)?)/i,
       o2: /(?:o2|ox[íi]geno)[^\d]*(\d+(?:[.,]\d+)?)/i,
-      h2s: /(?:h2s|[áa]cido sulfh[íi]drico|sulfh[íi]drico)[^\d]*(\d+(?:[.,]\d+)?)/i,
-      co: /(?:co|mon[óo]xido)[^\d]*(\d+(?:[.,]\d+)?)/i,
+      h2s: /(?:h2s|h dos s|[áa]cido sulfh[íi]drico|sulfh[íi]drico|sulfuro(?: de hidr[óo]geno)?|gas sulfh[íi]drico)[^\d]*(\d+(?:[.,]\d+)?)/i,
+      co: /\bco\b[^\d]*(\d+(?:[.,]\d+)?)/i,
       no: /(?:no|[óo]xido n[íi]trico)[^\d]*(\d+(?:[.,]\d+)?)/i
     };
 
@@ -193,8 +194,8 @@ export default function RegistroBiodigestoresPage() {
       ch4: /(\d+(?:[.,]\d+)?)[^\d]*(?:ch4|metano)/i,
       co2: /(\d+(?:[.,]\d+)?)[^\d]*(?:co2|di[óo]xido|carbono)/i,
       o2: /(\d+(?:[.,]\d+)?)[^\d]*(?:o2|ox[íi]geno)/i,
-      h2s: /(\d+(?:[.,]\d+)?)[^\d]*(?:h2s|[áa]cido sulfh[íi]drico)/i,
-      co: /(\d+(?:[.,]\d+)?)[^\d]*(?:co|mon[óo]xido)/i,
+      h2s: /(\d+(?:[.,]\d+)?)[^\d]*(?:h2s|h dos s|[áa]cido sulfh[íi]drico|sulfh[íi]drico|sulfuro(?: de hidr[óo]geno)?)/i,
+      co: /(\d+(?:[.,]\d+)?)[^\d]*\bco\b/i,
       no: /(\d+(?:[.,]\d+)?)[^\d]*(?:no|[óo]xido n[íi]trico)/i
     };
 
@@ -205,6 +206,7 @@ export default function RegistroBiodigestoresPage() {
       const match = texto.match(patron);
       if (match && match[1]) {
         valoresExtraidos[campo] = match[1].replace(',', '.');
+        console.log(`Encontrado ${campo}:`, match[1]);
       }
     });
 
@@ -215,10 +217,13 @@ export default function RegistroBiodigestoresPage() {
           const match = texto.match(patron);
           if (match && match[1]) {
             valoresExtraidos[campo] = match[1].replace(',', '.');
+            console.log(`Encontrado alternativo ${campo}:`, match[1]);
           }
         }
       });
     }
+
+    console.log('Valores extraídos:', valoresExtraidos);
 
     // Buscar biodigestor mencionado en la transcripción
     let biodigestorEncontrado: Biodigestor | null = null;
