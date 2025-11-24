@@ -427,20 +427,6 @@ export default function SensoresPage() {
               </div>
             </div>
 
-                    <p className="text-gray-400 text-xs">Hace 15 min</p>
-                  </div>
-                  <button className="text-yellow-400 hover:text-yellow-300 text-sm">Ver</button>
-                </div>
-                <div className="flex items-center p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-                  <div className="w-2 h-2 bg-green-400 rounded-full mr-3"></div>
-                  <div className="flex-1">
-                    <p className="text-white text-sm">Temperatura normalizada</p>
-                    <p className="text-gray-400 text-xs">Hace 1 hora</p>
-                  </div>
-                  <button className="text-green-400 hover:text-green-300 text-sm">Ver</button>
-                </div>
-                <div className="flex items-center p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full mr-3"></div>
             <div className="text-sm text-gray-400">
               <p>Selecciona el rango de fechas y el tipo de datos que deseas exportar. Los datos se filtrarán por fecha de creación/registro.</p>
             </div>

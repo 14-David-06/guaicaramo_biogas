@@ -17,11 +17,22 @@ interface TurnoActivo {
   fechaInicio: string;
 }
 
+const PRIVILEGED_ROLES = [
+  'Ingeniera - Jefe de planta',
+  'Jefe director de planta',
+  'Desarrollador',
+  'CTO',
+  'CEO'
+];
+
 export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoGuardProps) {
   const { user } = useAuth();
   const [turnoActivo, setTurnoActivo] = useState<TurnoActivo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Verificar si el usuario tiene rol privilegiado
+  const isPrivilegedUser = user && PRIVILEGED_ROLES.includes(user.cargo);
 
   useEffect(() => {
     const verificarTurnoActivo = async () => {
@@ -100,6 +111,11 @@ export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoG
 
   // Si estamos en la página de turnos, siempre permitir acceso
   if (allowTurnosPage) {
+    return <>{children}</>;
+  }
+
+  // Si el usuario tiene rol privilegiado, permitir acceso sin restricciones de turno
+  if (isPrivilegedUser) {
     return <>{children}</>;
   }
 

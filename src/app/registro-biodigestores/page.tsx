@@ -3,6 +3,7 @@
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BackgroundLayout from '@/components/BackgroundLayout';
+import TurnoGuard from '@/components/TurnoGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { airtableService, MedicionBiodigestores, Biodigestor } from '@/utils/airtable';
@@ -280,23 +281,24 @@ export default function RegistroBiodigestoresPage() {
   };
 
   return (
-    <BackgroundLayout>
-      <div className="min-h-screen flex flex-col">
-        <Navbar 
-          onLoginClick={() => {}} 
-          loggedInUser={loggedInUser}
-          onLogout={logout}
-        />
-      
-      <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
-        <div className="max-w-6xl mx-auto py-12">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-white mb-4">Registro de Medición de Biodigestores</h1>
-            <p className="text-gray-300 text-lg">Registro de mediciones de gases en biodigestores</p>
-          </div>
+    <TurnoGuard>
+      <BackgroundLayout>
+        <div className="min-h-screen flex flex-col">
+          <Navbar 
+            onLoginClick={() => {}} 
+            loggedInUser={loggedInUser}
+            onLogout={logout}
+          />
+        
+        <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
+          <div className="max-w-6xl mx-auto py-12">
+            <div className="text-center mb-12">
+              <h1 className="text-4xl font-bold text-white mb-4">Registro de Medición de Biodigestores</h1>
+              <p className="text-gray-300 text-lg">Registro de mediciones de gases en biodigestores</p>
+            </div>
 
-          {/* Formulario de Medición */}
-          <form onSubmit={handleSubmit} className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-600/30 mb-8">
+            {/* Formulario de Medición */}
+            <form onSubmit={handleSubmit} className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-600/30 mb-8">
             
             {/* Botón de Micrófono */}
             <div className="mb-6 flex justify-center">
@@ -553,5 +555,6 @@ export default function RegistroBiodigestoresPage() {
       <Footer />
       </div>
     </BackgroundLayout>
+    </TurnoGuard>
   );
 }
