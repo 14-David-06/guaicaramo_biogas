@@ -30,11 +30,18 @@ INSTRUCCIONES:
 Responde solo con el informe, sin introducciones.
 `;
 
+    // Verificar que la clave de OpenAI esté configurada
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      console.error('OPENAI_API_KEY not configured');
+      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+    }
+
     // Llamada a OpenAI para generar el informe
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

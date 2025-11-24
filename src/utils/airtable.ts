@@ -71,13 +71,6 @@ console.log('Medicion Biodigestores API URL:', MEDICION_BIODIGESTORES_API_URL);
 console.log('Limpiezas API URL:', LIMPIEZAS_API_URL);
 console.log('Protocolo Encendido API URL:', PROTOCOLO_ENCENDIDO_API_URL);
 
-export interface TurnoOperador {
-  id?: string;
-  fields: {
-    [key: string]: string | string[] | number | boolean;
-  };
-}
-
 // Field IDs para fácil referencia - usando variables de entorno
 const FIELD_IDS = {
   FECHA_INICIO: process.env.NEXT_PUBLIC_FIELD_FECHA_INICIO!,
@@ -117,7 +110,11 @@ export interface Motor {
   fields: {
     'ID': string;
     'Nombre Motor': string;
+    'Datos Apertura Turno Biogas'?: string[];
+    'Registro Diario Jenbacher'?: string[];
     'Estados Motores'?: string[];
+    'Monitoreo Motores'?: string[];
+    'Protocolo Encendido Motores'?: string[];
     [key: string]: string | string[] | number | boolean | undefined;
   };
 }
@@ -128,10 +125,12 @@ export interface EstadoMotor {
     'ID': string;
     'Fecha y Hora': string;
     'Estado Motor': 'Apagado' | 'Encendido';
-    'Observaciones'?: string;
-    'Realiza Registro'?: string;
-    'Motor'?: string[];
-    'Turnos Operadores'?: string[];
+    'Realiza Registro': string;
+    'Motor': string[];
+    'Turnos Operadores': string[];
+    'Monitoreo Motores'?: string[];
+    'Protocolo Encendido Motores'?: string[];
+    'Registros Diarios Jenbacher'?: string[];
     [key: string]: string | string[] | number | boolean | undefined;
   };
 }
@@ -139,8 +138,8 @@ export interface EstadoMotor {
 export interface ProtocoloEncendido {
   id?: string;
   fields: {
-    'Motor': string[];
-    'Realiza Registro': string;
+    'ID': string;
+    'Fecha': string;
     'EPP Disponibles': string;
     'EPP Buen Estado': string;
     'Aceite al 50% (mirilla)': string;
@@ -160,9 +159,11 @@ export interface ProtocoloEncendido {
     'Horómetro inicial registrado': string;
     'Composición de biogás controlada': string;
     'Lavado de radiador (si aplica)': string;
+    'Realiza Registro': string;
     'Observaciones generales'?: string;
-    'Turno'?: string[];
-    'Estado Motor'?: string[];
+    'Motor': string[];
+    'Estado Motor': string[];
+    'Turno': string[];
     [key: string]: string | string[] | number | boolean | undefined;
   };
 }
@@ -170,7 +171,9 @@ export interface ProtocoloEncendido {
 export interface MonitoreoMotor {
   id?: string;
   fields: {
-    'Motor': string[];
+    'ID': string;
+    'Fecha de creacion': string;
+    'Nombre Motor': string[];
     'Horometro Inicial': number;
     'Horometro Final'?: number;
     'Arranques Inicio': number;
@@ -180,8 +183,10 @@ export interface MonitoreoMotor {
     'Kw de Inicio': number;
     'Kw de Fin'?: number;
     'Realiza Registro': string;
+    'Motor': string[];
     'Turnos Operadores'?: string[];
     'Estados Motores'?: string[];
+    'Registros Diarios Jenbacher'?: string[];
     [key: string]: string | string[] | number | boolean | undefined;
   };
 }
@@ -240,7 +245,7 @@ export interface MedicionBiodigestores {
     'Fecha Medicion': string;
     'CH4 (Max) %': number;
     'CO2 %': number;
-    '02 %': number;
+    'O2 %': number;
     'H2S': number;
     'CO': number;
     'NO': number;
@@ -265,6 +270,26 @@ export interface LimpiezaRegistro {
     'Observaciones': string;
     'Realiza Registro': string;
     'Turno'?: string[];
+    [key: string]: string | string[] | number | boolean | undefined;
+  };
+}
+
+export interface TurnoOperador {
+  id?: string;
+  fields: {
+    'ID': string;
+    'Creacion': string;
+    'Fecha Inicio': string;
+    'Fecha Fin'?: string;
+    'Realiza Registro': string;
+    'Nombre del Operador': string[];
+    'ID_Operador': string[];
+    'Estados Motores'?: string[];
+    'Monitoreo Motores'?: string[];
+    'Protocolo Encendido Motores'?: string[];
+    'Registros Diarios Jenbacher'?: string[];
+    'Copia de Bitácora Operadores'?: string[];
+    'Medicion Biodigestores'?: string[];
     [key: string]: string | string[] | number | boolean | undefined;
   };
 }
@@ -421,12 +446,23 @@ export const airtableService = {
     }
   },
 
-  // Obtener información de un operador específico
-  async obtenerOperador(operadorId: string): Promise<OperadorBioGas | null> {
+  // Obtener el nombre de un motor por su ID
+  async obtenerNombreMotor(motorId: string): Promise<string> {
     try {
-      const url = `${EQUIPO_BIOGAS_API_URL}/${operadorId}`;
+      const motor = await this.obtenerMotor(motorId);
+      return motor?.fields['Nombre Motor'] || `Motor ${motorId.slice(-4)}`;
+    } catch (error) {
+      console.error('Error al obtener nombre del motor:', error);
+      return `Motor ${motorId.slice(-4)}`;
+    }
+  },
+
+  // Obtener información de un motor específico
+  async obtenerMotor(motorId: string): Promise<Motor | null> {
+    try {
+      const url = `${MOTORES_API_URL}/${motorId}`;
       
-      console.log('Obteniendo operador con URL:', url);
+      console.log('Obteniendo motor con URL:', url);
       
       const response = await fetch(url, {
         method: 'GET',
@@ -435,15 +471,15 @@ export const airtableService = {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error al obtener operador:', errorText);
-        throw new Error(`Error al obtener operador: ${response.status} - ${errorText}`);
+        console.error('Error al obtener motor:', errorText);
+        throw new Error(`Error al obtener motor: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
-      console.log('Operador result:', result);
+      console.log('Motor result:', result);
       return result;
     } catch (error) {
-      console.error('Error al obtener información del operador:', error);
+      console.error('Error al obtener información del motor:', error);
       throw error;
     }
   },
@@ -752,18 +788,45 @@ export const airtableService = {
     try {
       const filterFormula = `{Motor} = "${motorId}"`;
       const url = `${MONITOREO_MOTORES_API_URL}?filterByFormula=${encodeURIComponent(filterFormula)}&sort[0][field]=Fecha de creacion&sort[0][direction]=desc&maxRecords=1`;
-      
+
       const response = await fetch(url, { headers });
-      
+
       if (!response.ok) {
         throw new Error(`Error al obtener último monitoreo: ${response.status}`);
       }
-      
+
       const data = await response.json();
       return data.records.length > 0 ? data.records[0] : null;
     } catch (error) {
       console.error('Error al obtener último monitoreo del motor:', error);
       return null;
+    }
+  },
+
+  // Obtener todos los registros de monitoreo de motores
+  async obtenerMonitoreoMotores(): Promise<MonitoreoMotor[]> {
+    try {
+      const url = `${MONITOREO_MOTORES_API_URL}?sort[0][field]=Fecha de creacion&sort[0][direction]=desc`;
+
+      console.log('Obteniendo todos los monitoreos de motores con URL:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al obtener monitoreos de motores:', errorText);
+        throw new Error(`Error al obtener monitoreos de motores: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Monitoreos de motores obtenidos:', result.records?.length || 0, 'registros');
+      return result.records || [];
+    } catch (error) {
+      console.error('Error al obtener monitoreos de motores:', error);
+      throw error;
     }
   },
 
@@ -1220,6 +1283,110 @@ export const airtableService = {
       return data.records || [];
     } catch (error) {
       console.error('Error al obtener registros de limpiezas:', error);
+      throw error;
+    }
+  },
+
+  // Obtener registros diarios de Jenbacher
+  async obtenerRegistrosDiariosJenbacher(): Promise<RegistroDiariosJenbacher[]> {
+    try {
+      const response = await fetch(`${REGISTRO_DIARIOS_JENBACHER_API_URL}?sort[0][field]=Fecha Registro&sort[0][direction]=desc&maxRecords=50`, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error al obtener registros diarios Jenbacher:', errorText);
+        throw new Error(`Error al obtener registros diarios Jenbacher: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Registros diarios Jenbacher obtenidos:', data);
+      return data.records || [];
+    } catch (error) {
+      console.error('Error al obtener registros diarios Jenbacher:', error);
+      throw error;
+    }
+  },
+
+  // Obtener TODOS los datos asociados específicamente al turno actual
+  async obtenerDatosTurnoActual(): Promise<{
+    turno: TurnoOperador | null;
+    estadosMotores: EstadoMotor[];
+    monitoreoMotores: MonitoreoMotor[];
+    registrosJenbacher: RegistroDiariosJenbacher[];
+    bitacoraBiogas: BitacoraBiogas[];
+    medicionBiodigestores: MedicionBiodigestores[];
+  }> {
+    try {
+      const turno = await this.obtenerTurnoActivo();
+
+      if (!turno) {
+        return {
+          turno: null,
+          estadosMotores: [],
+          monitoreoMotores: [],
+          registrosJenbacher: [],
+          bitacoraBiogas: [],
+          medicionBiodigestores: []
+        };
+      }
+
+      console.log('🔍 Obteniendo datos del turno actual:', turno.id);
+
+      // Función helper para filtrar registros por turno
+      const filtrarPorTurno = (registros: unknown[], campoTurno: string) => {
+        return registros.filter(registro => {
+          const reg = registro as { id?: string; fields: Record<string, unknown> };
+          const turnoIds = reg.fields[campoTurno];
+          return Array.isArray(turnoIds) && turnoIds.includes(turno.id);
+        });
+      };
+
+      // Obtener TODOS los registros de cada tabla y filtrar por turno actual
+      const [
+        todosEstadosMotores,
+        todosRegistrosJenbacher,
+        todaBitacoraBiogas,
+        todasMedicionesBiodigestores,
+        todosMonitoreoMotores
+      ] = await Promise.all([
+        this.obtenerEstadosMotores(),
+        this.obtenerRegistrosDiariosJenbacher(),
+        this.obtenerBitacoraBiogas(),
+        this.obtenerMedicionesBiodigestores(),
+        this.obtenerMonitoreoMotores()
+      ]);
+
+      // Filtrar registros que pertenecen específicamente al turno actual
+      const estadosMotores = filtrarPorTurno(todosEstadosMotores, 'Turnos Operadores') as EstadoMotor[];
+      const registrosJenbacher = filtrarPorTurno(todosRegistrosJenbacher, 'Turno') as RegistroDiariosJenbacher[];
+      const bitacoraBiogas = filtrarPorTurno(todaBitacoraBiogas, 'Turno Operador') as BitacoraBiogas[];
+      const medicionBiodigestores = filtrarPorTurno(todasMedicionesBiodigestores, 'Turno Biogas') as MedicionBiodigestores[];
+
+      // Para monitoreo de motores, filtrar por 'Turnos Operadores'
+      const monitoreoMotores = filtrarPorTurno(todosMonitoreoMotores, 'Turnos Operadores') as MonitoreoMotor[];
+
+      console.log('📊 Datos del turno actual obtenidos:', {
+        turnoId: turno.id,
+        estadosMotores: estadosMotores.length,
+        registrosJenbacher: registrosJenbacher.length,
+        bitacoraBiogas: bitacoraBiogas.length,
+        medicionBiodigestores: medicionBiodigestores.length,
+        monitoreoMotores: monitoreoMotores.length
+      });
+
+      return {
+        turno,
+        estadosMotores,
+        monitoreoMotores,
+        registrosJenbacher,
+        bitacoraBiogas,
+        medicionBiodigestores
+      };
+    } catch (error) {
+      console.error('Error al obtener datos del turno actual:', error);
       throw error;
     }
   }
