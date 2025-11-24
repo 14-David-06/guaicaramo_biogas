@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 export default function Footer() {
   return (
     <footer className="bg-white/10 backdrop-blur-md border-t border-white/20 mt-auto">
@@ -9,11 +7,9 @@ export default function Footer() {
           <div className="flex flex-col items-center space-y-6">
             {/* Logo */}
             <div className="flex justify-center">
-              <Image
+              <img
                 src="/logo-Guaicaramo.png"
                 alt="Logo Guaicaramo"
-                width={280}
-                height={120}
                 className="h-10 sm:h-12 md:h-14 w-auto object-contain opacity-90"
               />
             </div>

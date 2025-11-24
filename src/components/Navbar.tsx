@@ -1,6 +1,5 @@
 'use client';
 
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useTurnoStatus } from "@/hooks/useTurnoStatus";
 
@@ -47,11 +46,9 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-4">
-              <Image
+              <img
                 src="/logo-Guaicaramo.png"
                 alt="Logo Guaicaramo"
-                width={80}
-                height={36}
                 className="h-8 sm:h-10 md:h-12 w-auto object-contain"
               />
             </div>
@@ -157,11 +154,9 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
               onClick={() => window.location.href = '/'}
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-300"
             >
-              <Image
+              <img
                 src="/logo-Guaicaramo.png"
                 alt="Logo Guaicaramo"
-                width={80}
-                height={36}
                 className="h-8 sm:h-10 md:h-12 w-auto object-contain transition-transform duration-200"
               />
             </button>

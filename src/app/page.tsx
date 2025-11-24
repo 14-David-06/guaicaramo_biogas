@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Login from '@/components/Login';
@@ -26,12 +25,10 @@ export default function Home() {
     return (
       <div className="relative min-h-screen flex items-center justify-center">
         <div className="fixed inset-0 w-full h-full z-0">
-          <Image
+          <img
             src="/DSC_3884-Mejorado-NR_ghtz72.jpg"
             alt="Background Biogas"
-            fill
-            className="object-cover"
-            priority
+            className="object-cover w-full h-full"
           />
           <div className="absolute inset-0 bg-black/50"></div>
         </div>
@@ -54,12 +51,10 @@ export default function Home() {
       <div className="relative min-h-screen flex flex-col">
         {/* Background Image */}
         <div className="fixed inset-0 w-full h-full z-0">
-          <Image
+          <img
             src="/DSC_3884-Mejorado-NR_ghtz72.jpg"
             alt="Background Biogas"
-            fill
-            className="object-cover"
-            priority
+            className="object-cover w-full h-full"
           />
           <div className="absolute inset-0 bg-black/40"></div>
         </div>

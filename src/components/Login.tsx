@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { User } from '@/hooks/useAuth';
 
 interface LoginProps {
@@ -180,13 +179,10 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
     <div className="min-h-screen relative bg-gray-900 flex items-center justify-center p-4">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
-        <Image
+        <img
           src="/18032025-DSC_2933.jpg"
           alt="Planta de Biogas Guaicaramo"
-          fill
-          className="object-cover"
-          priority
-          quality={90}
+          className="object-cover w-full h-full"
         />
         {/* Dark overlay for better text readability */}
         <div className="absolute inset-0 bg-black/70 backdrop-blur-[1px]"></div>
@@ -198,13 +194,10 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
           <div className="flex justify-center items-center mb-4 sm:mb-6">
             {/* Logo container with glass effect */}
             <div className="bg-white/15 backdrop-blur-md rounded-3xl p-4 sm:p-6 border border-white/20 shadow-2xl">
-              <Image
+              <img
                 src="/logo-Guaicaramo.png"
                 alt="Logo Guaicaramo Biogas"
-                width={120}
-                height={120}
                 className="w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 object-contain"
-                priority
               />
             </div>
           </div>
