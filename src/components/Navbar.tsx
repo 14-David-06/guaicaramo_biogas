@@ -105,9 +105,9 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
           description: "Vista general del sistema"
         },
         {
-          name: "Sensores en Tiempo Real",
+          name: "Histórico de Registros",
           href: "/sensores",
-          description: "Datos de sensores IoT"
+          description: "Histórico de datos registrados"
         }
       ]
     },
