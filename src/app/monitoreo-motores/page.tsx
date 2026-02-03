@@ -40,12 +40,21 @@ interface MonitoreoModal {
   onCancel: () => void;
 }
 
+interface ResumenInicioTurno {
+  fechaTurno: string;
+  operador: string;
+  motoresEncendidos: { nombre: string; modelo: string; serie: string }[];
+  motoresApagados: { nombre: string; modelo: string; serie: string }[];
+}
+
 export default function MonitoreoMotoresPage() {
   const { user: loggedInUser, logout } = useAuth();
   const [motoresConEstado, setMotoresConEstado] = useState<MotorConEstado[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [procesandoMotor, setProcesandoMotor] = useState<string | null>(null);
+  const [resumenInicioTurno, setResumenInicioTurno] = useState<ResumenInicioTurno | null>(null);
+  const [mostrarBannerTurno, setMostrarBannerTurno] = useState(false);
   const [modalConfirmacion, setModalConfirmacion] = useState<ConfirmacionModal>({
     isOpen: false,
     motorId: '',
@@ -70,6 +79,22 @@ export default function MonitoreoMotoresPage() {
     onSubmit: () => {},
     onCancel: () => {}
   });
+
+  // Verificar si viene de inicio de turno
+  useEffect(() => {
+    const resumenGuardado = sessionStorage.getItem('resumenInicioTurno');
+    if (resumenGuardado) {
+      try {
+        const resumen = JSON.parse(resumenGuardado);
+        setResumenInicioTurno(resumen);
+        setMostrarBannerTurno(true);
+        // Limpiar después de mostrar
+        sessionStorage.removeItem('resumenInicioTurno');
+      } catch (e) {
+        console.error('Error al parsear resumen de turno:', e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (loggedInUser) {
@@ -742,14 +767,30 @@ export default function MonitoreoMotoresPage() {
 
   if (!loggedInUser) {
     return (
-      <BackgroundLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-xl p-8 border border-white/20">
-            <h1 className="text-2xl mb-4">Acceso Requerido</h1>
-            <p>Debes iniciar sesión para acceder al monitoreo de motores.</p>
+      <TurnoGuard>
+        <BackgroundLayout>
+          <div className="min-h-screen flex items-center justify-center px-4">
+            <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-2xl p-6 sm:p-8 border border-white/20 max-w-md w-full">
+              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold mb-3">Acceso Requerido</h1>
+              <p className="text-gray-300 mb-6 text-sm sm:text-base">Debes iniciar sesión para acceder al monitoreo de motores.</p>
+              <button
+                onClick={() => window.location.href = '/'}
+                className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center space-x-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                <span>Iniciar Sesión</span>
+              </button>
+            </div>
           </div>
-        </div>
-      </BackgroundLayout>
+        </BackgroundLayout>
+      </TurnoGuard>
     );
   }
 
@@ -788,6 +829,89 @@ export default function MonitoreoMotoresPage() {
         
         <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
           <div className="max-w-7xl mx-auto py-12">
+            
+            {/* Banner de Inicio de Turno */}
+            {mostrarBannerTurno && resumenInicioTurno && (
+              <div className="mb-8 bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 border border-green-400/40 rounded-2xl p-6 relative overflow-hidden">
+                {/* Fondo decorativo */}
+                <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-emerald-500/5"></div>
+                
+                <div className="relative">
+                  {/* Header del banner */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-green-500/30 rounded-full flex items-center justify-center">
+                        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-green-400">¡Turno Iniciado!</h3>
+                        <p className="text-green-300 text-sm">
+                          {new Date(resumenInicioTurno.fechaTurno).toLocaleString('es-CO', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setMostrarBannerTurno(false)}
+                      className="text-gray-400 hover:text-white transition-colors p-1"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  {/* Resumen de motores */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Motores encendidos */}
+                    <div className="bg-green-500/10 rounded-xl p-4 border border-green-400/20">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                        <span className="text-green-300 font-medium text-sm">Motores Encendidos ({resumenInicioTurno.motoresEncendidos.length})</span>
+                      </div>
+                      {resumenInicioTurno.motoresEncendidos.length > 0 ? (
+                        <ul className="space-y-1">
+                          {resumenInicioTurno.motoresEncendidos.map((m, i) => (
+                            <li key={i} className="text-white text-sm">• {m.nombre} - {m.modelo}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-gray-400 text-sm italic">Ninguno</p>
+                      )}
+                    </div>
+                    
+                    {/* Motores apagados */}
+                    <div className="bg-red-500/10 rounded-xl p-4 border border-red-400/20">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                        <span className="text-red-300 font-medium text-sm">Motores Apagados ({resumenInicioTurno.motoresApagados.length})</span>
+                      </div>
+                      {resumenInicioTurno.motoresApagados.length > 0 ? (
+                        <ul className="space-y-1">
+                          {resumenInicioTurno.motoresApagados.map((m, i) => (
+                            <li key={i} className="text-white text-sm">• {m.nombre} - {m.modelo}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-gray-400 text-sm italic">Ninguno</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <p className="text-gray-300 text-xs mt-4 text-center">
+                    💡 Este es el estado de los motores al momento de recibir el turno
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Header */}
             <div className="text-center mb-12">
               <h1 className="text-4xl font-bold text-white mb-4">

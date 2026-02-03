@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { airtableService } from '@/utils/airtable';
 import { useAuth } from './useAuth';
 
@@ -10,6 +10,10 @@ const FIELD_IDS = {
   REALIZA_REGISTRO: process.env.NEXT_PUBLIC_FIELD_REALIZA_REGISTRO!,
   FECHA_INICIO: process.env.NEXT_PUBLIC_FIELD_FECHA_INICIO!
 };
+
+// Cache para evitar llamadas duplicadas
+const CACHE_DURATION = 30000; // 30 segundos de caché
+let cachedTurno: { data: unknown; timestamp: number } | null = null;
 
 interface TurnoStatus {
   hayTurnoActivo: boolean;
@@ -33,8 +37,10 @@ export function useTurnoStatus(): TurnoStatus {
     loading: true,
     error: null
   });
+  
+  const isFirstMount = useRef(true);
 
-  const verificarTurno = useCallback(async () => {
+  const verificarTurno = useCallback(async (forceRefresh = false) => {
     if (!user) {
       setStatus({
         hayTurnoActivo: false,
@@ -47,9 +53,39 @@ export function useTurnoStatus(): TurnoStatus {
     }
 
     try {
-      setStatus(prev => ({ ...prev, loading: true, error: null }));
+      // Usar caché si está disponible y no ha expirado
+      const now = Date.now();
+      if (!forceRefresh && cachedTurno && (now - cachedTurno.timestamp) < CACHE_DURATION) {
+        const turno = cachedTurno.data as { id?: string; fields: Record<string, unknown> } | null;
+        if (turno && turno.fields) {
+          const operadorIds = turno.fields[FIELD_IDS.ID_OPERADOR] || [];
+          const operadorId = Array.isArray(operadorIds) ? operadorIds[0] : operadorIds;
+          
+          setStatus({
+            hayTurnoActivo: true,
+            esElOperadorDelTurno: operadorId === user.id,
+            turnoActivo: {
+              id: turno.id!,
+              operadorId: String(operadorId),
+              nombreOperador: String(turno.fields[FIELD_IDS.REALIZA_REGISTRO] || 'Operador desconocido'),
+              fechaInicio: String(turno.fields[FIELD_IDS.FECHA_INICIO] || new Date().toISOString())
+            },
+            loading: false,
+            error: null
+          });
+          return;
+        }
+      }
+
+      // Solo mostrar loading en primera carga
+      if (isFirstMount.current) {
+        setStatus(prev => ({ ...prev, loading: true, error: null }));
+      }
       
       const turno = await airtableService.obtenerTurnoActivo();
+      
+      // Actualizar caché
+      cachedTurno = { data: turno, timestamp: Date.now() };
       
       if (turno && turno.fields) {
         const operadorIds = turno.fields[FIELD_IDS.ID_OPERADOR] || [];
@@ -78,6 +114,8 @@ export function useTurnoStatus(): TurnoStatus {
           error: null
         });
       }
+      
+      isFirstMount.current = false;
     } catch (error) {
       console.error('Error verificando turno:', error);
       setStatus(prev => ({

@@ -1,28 +1,36 @@
+'use client';
+
+import Image from 'next/image';
+
 export default function Footer() {
   return (
     <footer className="bg-white/10 backdrop-blur-md border-t border-white/20 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="py-10">
+        <div className="py-6 sm:py-10">
           {/* Contenido principal */}
-          <div className="flex flex-col items-center space-y-6">
+          <div className="flex flex-col items-center space-y-4 sm:space-y-6">
             {/* Logo */}
             <div className="flex justify-center">
-              <img
+              <Image
                 src="/logo-Guaicaramo.png"
                 alt="Logo Guaicaramo"
+                width={56}
+                height={56}
                 className="h-10 sm:h-12 md:h-14 w-auto object-contain opacity-90"
+                priority
               />
             </div>
 
             {/* Descripción */}
-            <p className="text-white/70 text-sm text-center max-w-2xl leading-relaxed">
+            <p className="text-white/70 text-xs sm:text-sm text-center max-w-2xl leading-relaxed px-4">
               Sistema integral de monitoreo y gestión para plantas de biogás.
-              <br />
+              <br className="hidden sm:block" />
+              <span className="sm:hidden"> </span>
               Tecnología sostenible para un futuro verde.
             </p>
 
             {/* Línea divisoria */}
-            <div className="w-full border-t border-white/20 my-6"></div>
+            <div className="w-full border-t border-white/20 my-4 sm:my-6"></div>
 
             {/* Información de empresas */}
             <div className="text-center space-y-2">

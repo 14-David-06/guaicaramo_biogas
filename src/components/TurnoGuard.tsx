@@ -26,7 +26,7 @@ const PRIVILEGED_ROLES = [
 ];
 
 export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoGuardProps) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [turnoActivo, setTurnoActivo] = useState<TurnoActivo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,22 +34,38 @@ export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoG
   // Verificar si el usuario tiene rol privilegiado
   const isPrivilegedUser = user && PRIVILEGED_ROLES.includes(user.cargo);
 
+  // Debug log
+  console.log('🔒 TurnoGuard Debug:', {
+    user: user?.nombre,
+    cargo: user?.cargo,
+    isPrivilegedUser,
+    allowTurnosPage,
+    authLoading,
+    loading,
+    turnoActivo: turnoActivo?.nombreOperador
+  });
+
   useEffect(() => {
     const verificarTurnoActivo = async () => {
       if (!user) {
+        console.log('🔒 TurnoGuard: No hay usuario, saltando verificación');
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
+        console.log('🔒 TurnoGuard: Verificando turno activo...');
         const turno = await airtableService.obtenerTurnoActivo();
+        console.log('🔒 TurnoGuard: Respuesta de turno:', turno);
         
         if (turno && turno.fields) {
           // Usar los nombres reales de campos de Airtable
           const nombreOperadorTurno = turno.fields['Realiza Registro'] || turno.fields['Nombre del Operador'];
           const operadorIds = turno.fields['ID_Operador'] || [];
           const operadorId = Array.isArray(operadorIds) ? operadorIds[0] : operadorIds;
+          
+          console.log('🔒 TurnoGuard: Turno activo encontrado para:', nombreOperadorTurno);
           
           setTurnoActivo({
             id: turno.id!,
@@ -58,10 +74,11 @@ export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoG
             fechaInicio: String(turno.fields['Fecha Inicio'] || new Date().toISOString())
           });
         } else {
+          console.log('🔒 TurnoGuard: NO hay turno activo');
           setTurnoActivo(null);
         }
       } catch (error) {
-        console.error('Error verificando turno activo:', error);
+        console.error('🔒 TurnoGuard Error:', error);
         setError('Error al verificar el estado del turno');
       } finally {
         setLoading(false);
@@ -71,14 +88,14 @@ export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoG
     verificarTurnoActivo();
   }, [user]);
 
-  // Mostrar loading
-  if (loading) {
+  // Mostrar loading mientras se verifica autenticación o turno
+  if (authLoading || loading) {
     return (
       <BackgroundLayout>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
-            <p className="text-white">Verificando estado del turno...</p>
+            <p className="text-white">{authLoading ? 'Verificando sesión...' : 'Verificando estado del turno...'}</p>
           </div>
         </div>
       </BackgroundLayout>
@@ -104,9 +121,42 @@ export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoG
     );
   }
 
-  // No hay usuario logueado - permitir acceso
+  // No hay usuario logueado - BLOQUEAR acceso y redirigir al login
   if (!user) {
-    return <>{children}</>;
+    return (
+      <BackgroundLayout>
+        <div className="min-h-screen flex flex-col">
+          <div className="flex-grow flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-400/30 rounded-xl p-8 text-center backdrop-blur-sm">
+              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              
+              <h1 className="text-2xl font-bold text-white mb-4">Inicio de Sesión Requerido</h1>
+              
+              <div className="text-gray-300 space-y-3 mb-6">
+                <p className="font-semibold text-blue-400">Debes iniciar sesión para acceder</p>
+                <p className="text-sm">
+                  Esta sección requiere autenticación. Por favor inicia sesión con tu cuenta de operador.
+                </p>
+              </div>
+
+              <button
+                onClick={() => window.location.href = '/'}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all font-semibold flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                Ir a Iniciar Sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </BackgroundLayout>
+    );
   }
 
   // Si estamos en la página de turnos, siempre permitir acceso

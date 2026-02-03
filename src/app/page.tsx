@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Login from '@/components/Login';
@@ -25,17 +26,19 @@ export default function Home() {
     return (
       <div className="relative min-h-screen flex items-center justify-center">
         <div className="fixed inset-0 w-full h-full z-0">
-          <img
+          <Image
             src="/DSC_3884-Mejorado-NR_ghtz72.jpg"
             alt="Background Biogas"
-            className="object-cover w-full h-full"
+            fill
+            className="object-cover"
+            priority
           />
           <div className="absolute inset-0 bg-black/50"></div>
         </div>
-        <div className="relative z-10 backdrop-blur-lg bg-white/10 rounded-2xl p-8 border border-white/20 shadow-2xl">
+        <div className="relative z-10 backdrop-blur-lg bg-white/10 rounded-2xl p-6 sm:p-8 border border-white/20 shadow-2xl mx-4">
           <div className="flex items-center justify-center space-x-3">
             <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-white text-lg font-medium">Verificando sesión...</span>
+            <span className="text-white text-base sm:text-lg font-medium">Verificando sesión...</span>
           </div>
         </div>
       </div>
@@ -51,10 +54,12 @@ export default function Home() {
       <div className="relative min-h-screen flex flex-col">
         {/* Background Image */}
         <div className="fixed inset-0 w-full h-full z-0">
-          <img
+          <Image
             src="/DSC_3884-Mejorado-NR_ghtz72.jpg"
             alt="Background Biogas"
-            className="object-cover w-full h-full"
+            fill
+            className="object-cover"
+            priority
           />
           <div className="absolute inset-0 bg-black/40"></div>
         </div>

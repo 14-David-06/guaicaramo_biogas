@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useTurnoStatus } from "@/hooks/useTurnoStatus";
+import Image from 'next/image';
+import Link from 'next/link';
 
 interface User {
   id: string;
@@ -46,10 +48,13 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-4">
-              <img
+              <Image
                 src="/logo-Guaicaramo.png"
                 alt="Logo Guaicaramo"
+                width={48}
+                height={48}
                 className="h-8 sm:h-10 md:h-12 w-auto object-contain"
+                priority
               />
             </div>
             <div className="hidden md:flex items-center space-x-6">
@@ -150,16 +155,20 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
         <div className="flex justify-between items-center h-20">
           {/* Logo */}
           <div className="flex items-center space-x-4">
-            <button
-              onClick={() => window.location.href = '/'}
+            <Link
+              href="/"
+              prefetch={true}
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-300"
             >
-              <img
+              <Image
                 src="/logo-Guaicaramo.png"
                 alt="Logo Guaicaramo"
+                width={48}
+                height={48}
                 className="h-8 sm:h-10 md:h-12 w-auto object-contain transition-transform duration-200"
+                priority
               />
-            </button>
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
@@ -186,9 +195,10 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
                         <h3 className="text-sm font-semibold text-white/90">{section.name}</h3>
                       </div>
                       {section.items.map((item) => (
-                        <a
+                        <Link
                           key={item.name}
                           href={item.href}
+                          prefetch={true}
                           className="group flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 mx-2 rounded-lg"
                           onClick={closeDropdowns}
                         >
@@ -202,7 +212,7 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
                               </span>
                             )}
                           </div>
-                        </a>
+                        </Link>
                       ))}
                     </div>
                   )}
@@ -307,15 +317,16 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
                     <h3 className="text-white/90 text-sm font-semibold uppercase tracking-wider">{section.name}</h3>
                   </div>
                   {section.items.map((item) => (
-                    <a
+                    <Link
                       key={item.name}
                       href={item.href}
+                      prefetch={true}
                       className="group flex items-center text-white/90 hover:text-white hover:bg-white/15 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 mx-2 backdrop-blur-sm border border-transparent hover:border-white/20"
                       onClick={() => setIsMenuOpen(false)}
                     >
                       <span className="w-1 h-1 bg-white/60 rounded-full mr-3 group-hover:bg-white group-hover:scale-150 transition-all duration-200"></span>
                       <span className="group-hover:translate-x-1 transition-transform duration-200">{item.name}</span>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               ))}

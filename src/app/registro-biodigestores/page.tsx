@@ -3,7 +3,6 @@
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BackgroundLayout from '@/components/BackgroundLayout';
-import TurnoGuard from '@/components/TurnoGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { airtableService, MedicionBiodigestores, Biodigestor } from '@/utils/airtable';
@@ -74,10 +73,24 @@ export default function RegistroBiodigestoresPage() {
   if (!loggedInUser) {
     return (
       <BackgroundLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-xl p-8 border border-white/20">
-            <h1 className="text-2xl mb-4">Acceso Requerido</h1>
-            <p>Debes iniciar sesión para acceder al registro de biodigestores.</p>
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-2xl p-6 sm:p-8 border border-white/20 max-w-md w-full">
+            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold mb-3">Acceso Requerido</h1>
+            <p className="text-gray-300 mb-6 text-sm sm:text-base">Debes iniciar sesión para acceder al registro de biodigestores.</p>
+            <button
+              onClick={() => window.location.href = '/'}
+              className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+              <span>Iniciar Sesión</span>
+            </button>
           </div>
         </div>
       </BackgroundLayout>
@@ -281,14 +294,13 @@ export default function RegistroBiodigestoresPage() {
   };
 
   return (
-    <TurnoGuard>
-      <BackgroundLayout>
-        <div className="min-h-screen flex flex-col">
-          <Navbar 
-            onLoginClick={() => {}} 
-            loggedInUser={loggedInUser}
-            onLogout={logout}
-          />
+    <BackgroundLayout>
+      <div className="min-h-screen flex flex-col">
+        <Navbar 
+          onLoginClick={() => {}} 
+          loggedInUser={loggedInUser}
+          onLogout={logout}
+        />
         
         <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
           <div className="max-w-6xl mx-auto py-12">
@@ -552,9 +564,8 @@ export default function RegistroBiodigestoresPage() {
         </div>
       </main>
 
-      <Footer />
+        <Footer />
       </div>
     </BackgroundLayout>
-    </TurnoGuard>
   );
 }
