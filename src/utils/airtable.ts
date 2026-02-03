@@ -258,9 +258,10 @@ export interface MedicionBiodigestores {
 
 export interface LimpiezaRegistro {
   id?: string;
+  createdTime?: string;
   fields: {
-    'ID': string;
-    'Fecha de creacion': string;
+    'ID'?: string;
+    'Fecha de creacion'?: string;
     'Pisos y andén limpios (cuarto de control y área externa)': string;
     'Ventanas limpias con retal húmedo?': string;
     'Tableros limpios (con precaución en perillas y controles)?': string;

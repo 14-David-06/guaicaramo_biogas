@@ -784,7 +784,8 @@ export default function LimpiezasPage() {
                       </thead>
                       <tbody className="divide-y divide-slate-700/30">
                         {registros.map((registro, index) => {
-                          const fecha = new Date(registro.fields['Fecha de creacion']).toLocaleString();
+                          const fechaCreacion = registro.fields['Fecha de creacion'] || registro.createdTime;
+                          const fecha = fechaCreacion ? new Date(fechaCreacion).toLocaleString() : 'Fecha no disponible';
                           const operador = registro.fields['Realiza Registro'];
                           const observaciones = registro.fields['Observaciones'] || 'Sin notas';
                           
