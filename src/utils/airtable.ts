@@ -789,6 +789,8 @@ export const airtableService = {
       const filterFormula = `{Motor} = "${motorId}"`;
       const url = `${MONITOREO_MOTORES_API_URL}?filterByFormula=${encodeURIComponent(filterFormula)}&sort[0][field]=Fecha de creacion&sort[0][direction]=desc&maxRecords=1`;
 
+      console.log('🔍 Buscando monitoreo para motor con URL:', url);
+
       const response = await fetch(url, { headers });
 
       if (!response.ok) {
@@ -796,6 +798,7 @@ export const airtableService = {
       }
 
       const data = await response.json();
+      console.log('🔍 Resultado de monitoreo motor:', data);
       return data.records.length > 0 ? data.records[0] : null;
     } catch (error) {
       console.error('Error al obtener último monitoreo del motor:', error);

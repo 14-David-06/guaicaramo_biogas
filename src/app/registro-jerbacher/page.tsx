@@ -62,6 +62,7 @@ export default function RegistroJerbacherPage() {
   const verificarDatosMonitoreo = async (motorId: string): Promise<boolean> => {
     try {
       const ultimoMonitoreo = await airtableService.obtenerUltimoMonitoreoMotor(motorId);
+      console.log(`🔍 Verificando monitoreo para motor ${motorId}:`, ultimoMonitoreo);
       return ultimoMonitoreo !== null;
     } catch (error) {
       console.error('Error verificando datos de monitoreo:', error);
@@ -76,6 +77,7 @@ export default function RegistroJerbacherPage() {
     
     try {
       const todosLosMotores = await airtableService.obtenerMotores();
+      console.log('🔍 Total de motores encontrados:', todosLosMotores.length);
       
       const motoresCalificados: Motor[] = [];
       
@@ -83,11 +85,18 @@ export default function RegistroJerbacherPage() {
         const estaEncendido = await verificarMotorEncendido(motor.id);
         const tieneMonitoreo = await verificarDatosMonitoreo(motor.id);
         
+        console.log(`🔍 Motor ${motor.fields['Nombre Motor']}:`, {
+          id: motor.id,
+          encendido: estaEncendido,
+          tieneMonitoreo: tieneMonitoreo
+        });
+        
         if (estaEncendido && tieneMonitoreo) {
           motoresCalificados.push(motor);
         }
       }
       
+      console.log('✅ Motores calificados:', motoresCalificados.length);
       setMotoresValidos(motoresCalificados);
       
       if (motoresCalificados.length === 0) {

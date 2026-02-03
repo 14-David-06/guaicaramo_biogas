@@ -691,13 +691,13 @@ export default function MonitoreoMotoresPage() {
     ];
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
         <div 
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           onClick={modalMonitoreo.onCancel}
         />
         
-        <div className="relative bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-lg rounded-2xl p-6 border border-slate-600/50 shadow-2xl max-w-2xl w-full mx-4">
+        <div className="relative bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-lg rounded-2xl p-6 border border-slate-600/50 shadow-2xl max-w-2xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-3xl">📊</span>
@@ -743,7 +743,7 @@ export default function MonitoreoMotoresPage() {
               ))}
             </div>
 
-            <div className="flex space-x-4 pt-4">
+            <div className="flex space-x-4 pt-4 sticky bottom-0 bg-gradient-to-t from-slate-900 to-transparent pt-6 -mx-6 px-6 pb-2">
               <button
                 type="button"
                 onClick={modalMonitoreo.onCancel}
