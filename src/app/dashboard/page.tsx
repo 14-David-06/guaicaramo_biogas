@@ -49,6 +49,7 @@ export default function DashboardPage() {
   const [cargandoDatos, setCargandoDatos] = useState(true);
   const [errorDatos, setErrorDatos] = useState<string | null>(null);
   const [motores, setMotores] = useState<Motor[]>([]);
+  const [modoVista, setModoVista] = useState<'turno' | 'historico'>('historico'); // Cambiado a 'historico' por defecto
 
   // Función helper para obtener nombre del motor
   const obtenerNombreMotor = (motorId: string | string[]): string => {
@@ -104,7 +105,10 @@ export default function DashboardPage() {
       return fechaA - fechaB;
     });
 
-    const labels = registros.map((registro) => {
+    // Limitar a los últimos 100 registros para evitar sobrecargar las gráficas
+    const registrosLimitados = registros.slice(-100);
+
+    const labels = registrosLimitados.map((registro) => {
       const fecha = typeof registro.fields['Fecha Registro'] === 'string' ? new Date(registro.fields['Fecha Registro']) : new Date();
       return fecha.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
     });
@@ -114,7 +118,7 @@ export default function DashboardPage() {
       datasets: [
         {
           label: 'CH₄ (%)',
-          data: registros.map(r => r.fields['METANO(CH4)%'] || 0),
+          data: registrosLimitados.map(r => r.fields['METANO(CH4)%'] || 0),
           borderColor: 'rgba(34, 197, 94, 1)',
           backgroundColor: 'rgba(34, 197, 94, 0.1)',
           tension: 0.4,
@@ -122,7 +126,7 @@ export default function DashboardPage() {
         },
         {
           label: 'O₂ (%)',
-          data: registros.map(r => r.fields['OXIGENO(O2) %'] || 0),
+          data: registrosLimitados.map(r => r.fields['OXIGENO(O2) %'] || 0),
           borderColor: 'rgba(59, 130, 246, 1)',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
           tension: 0.4,
@@ -130,7 +134,7 @@ export default function DashboardPage() {
         },
         {
           label: 'CO₂ (%)',
-          data: registros.map(r => r.fields['DIOXIDO DE CARBONO(CO2) %'] || 0),
+          data: registrosLimitados.map(r => r.fields['DIOXIDO DE CARBONO(CO2) %'] || 0),
           borderColor: 'rgba(239, 68, 68, 1)',
           backgroundColor: 'rgba(239, 68, 68, 0.1)',
           tension: 0.4,
@@ -138,7 +142,7 @@ export default function DashboardPage() {
         },
         {
           label: 'H₂S (ppm)',
-          data: registros.map(r => r.fields['ACIDO SULFIDRICO(H2S)'] || 0),
+          data: registrosLimitados.map(r => r.fields['ACIDO SULFIDRICO(H2S)'] || 0),
           borderColor: 'rgba(245, 158, 11, 1)',
           backgroundColor: 'rgba(245, 158, 11, 0.1)',
           tension: 0.4,
@@ -158,7 +162,10 @@ export default function DashboardPage() {
       return fechaA - fechaB;
     });
 
-    const labels = registros.map((registro) => {
+    // Limitar a los últimos 100 registros
+    const registrosLimitados = registros.slice(-100);
+
+    const labels = registrosLimitados.map((registro) => {
       const fecha = typeof registro.fields['Fecha Registro'] === 'string' ? new Date(registro.fields['Fecha Registro']) : new Date();
       return fecha.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
     });
@@ -168,7 +175,7 @@ export default function DashboardPage() {
       datasets: [
         {
           label: 'Potencia Generada (KW)',
-          data: registros.map(r => r.fields['POTENCIA GENERADA(Kw)'] || 0),
+          data: registrosLimitados.map(r => r.fields['POTENCIA GENERADA(Kw)'] || 0),
           backgroundColor: 'rgba(34, 197, 94, 0.8)',
           borderColor: 'rgba(34, 197, 94, 1)',
           borderWidth: 1,
@@ -176,7 +183,7 @@ export default function DashboardPage() {
         },
         {
           label: 'Biogás Consumido (M³)',
-          data: registros.map(r => r.fields['M3 DE BIOGAS (M3)'] || 0),
+          data: registrosLimitados.map(r => r.fields['M3 DE BIOGAS (M3)'] || 0),
           backgroundColor: 'rgba(59, 130, 246, 0.8)',
           borderColor: 'rgba(59, 130, 246, 1)',
           borderWidth: 1,
@@ -353,7 +360,10 @@ export default function DashboardPage() {
       return fechaA - fechaB;
     });
 
-    const labels = registros.map((registro) => {
+    // Limitar a los últimos 100 registros
+    const registrosLimitados = registros.slice(-100);
+
+    const labels = registrosLimitados.map((registro) => {
       const fecha = typeof registro.fields['Fecha Registro'] === 'string' ? new Date(registro.fields['Fecha Registro']) : new Date();
       return fecha.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
     });
@@ -363,7 +373,7 @@ export default function DashboardPage() {
       datasets: [
         {
           label: 'Temp. Entrada Biofiltro (°C)',
-          data: registros.map(r => r.fields['TEMP. ENTRADA BIOFILTRO'] || 0),
+          data: registrosLimitados.map(r => r.fields['TEMP. ENTRADA BIOFILTRO'] || 0),
           borderColor: 'rgba(239, 68, 68, 1)',
           backgroundColor: 'rgba(239, 68, 68, 0.1)',
           tension: 0.4,
@@ -371,7 +381,7 @@ export default function DashboardPage() {
         },
         {
           label: 'Temp. Salida Biofiltro (°C)',
-          data: registros.map(r => r.fields['TEMP. SALIDA BIOFILTRO'] || 0),
+          data: registrosLimitados.map(r => r.fields['TEMP. SALIDA BIOFILTRO'] || 0),
           borderColor: 'rgba(34, 197, 94, 1)',
           backgroundColor: 'rgba(34, 197, 94, 0.1)',
           tension: 0.4,
@@ -660,16 +670,49 @@ export default function DashboardPage() {
     if (loggedInUser) {
       cargarDatosDashboard();
     }
-  }, [loggedInUser]);
+  }, [loggedInUser, modoVista]);
 
   const cargarDatosDashboard = async () => {
     try {
       setCargandoDatos(true);
       setErrorDatos(null);
-      const datos = await airtableService.obtenerDatosTurnoActual();
-      const motoresData = await airtableService.obtenerMotores();
-      setDatosTurno(datos);
-      setMotores(motoresData);
+
+      if (modoVista === 'turno') {
+        // Cargar datos del turno actual
+        const datos = await airtableService.obtenerDatosTurnoActual();
+        const motoresData = await airtableService.obtenerMotores();
+        setDatosTurno(datos);
+        setMotores(motoresData);
+      } else {
+        // Cargar todos los datos históricos
+        const [
+          turno,
+          estadosMotores,
+          monitoreoMotores,
+          registrosJenbacher,
+          bitacoraBiogas,
+          medicionBiodigestores,
+          motoresData
+        ] = await Promise.all([
+          airtableService.obtenerTurnoActivo(),
+          airtableService.obtenerEstadosMotores(),
+          airtableService.obtenerMonitoreoMotores(),
+          airtableService.obtenerRegistrosDiariosJenbacher(),
+          airtableService.obtenerBitacoraBiogas(),
+          airtableService.obtenerMedicionesBiodigestores(),
+          airtableService.obtenerMotores()
+        ]);
+
+        setDatosTurno({
+          turno,
+          estadosMotores,
+          monitoreoMotores,
+          registrosJenbacher,
+          bitacoraBiogas,
+          medicionBiodigestores
+        });
+        setMotores(motoresData);
+      }
     } catch (error) {
       console.error('Error cargando datos del dashboard:', error);
       setErrorDatos('Error al cargar los datos del dashboard');
@@ -705,7 +748,9 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto py-12">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-white mb-4">Dashboard Principal</h1>
-            <p className="text-gray-300 text-lg">Vista general del sistema de biogás</p>
+            <p className="text-gray-300 text-lg">
+              {modoVista === 'turno' ? 'Vista general del turno actual' : 'Vista general de datos históricos'}
+            </p>
             
             {/* Indicador de estado y recarga */}
             <div className="mt-4 flex justify-center items-center space-x-4">
@@ -721,6 +766,31 @@ export default function DashboardPage() {
                   Error al cargar datos: {errorDatos}
                 </div>
               )}
+
+              {/* Toggle para modo de vista */}
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-300 text-sm">Vista:</span>
+                <button
+                  onClick={() => setModoVista('turno')}
+                  className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                    modoVista === 'turno' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  Turno Actual
+                </button>
+                <button
+                  onClick={() => setModoVista('historico')}
+                  className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                    modoVista === 'historico' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  Datos Históricos
+                </button>
+              </div>
               
               <button
                 onClick={cargarDatosDashboard}
@@ -921,7 +991,7 @@ export default function DashboardPage() {
           {/* Gráficos Estratégicos de Componentes Químicos */}
           {datosTurno && datosTurno.registrosJenbacher.length > 0 && (
             <div className="mt-12">
-              <h2 className="text-3xl font-bold text-white mb-8 text-center">📈 Análisis Estratégico - Componentes Químicos Jenbacher</h2>
+              <h2 className="text-3xl font-bold text-white mb-8 text-center">📈 Análisis Estratégico - Componentes Químicos {modoVista === 'historico' ? 'Históricos' : 'del Turno'}</h2>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 {/* Composición del Gas */}
@@ -1033,7 +1103,7 @@ export default function DashboardPage() {
           {/* Gráficos Avanzados del Sistema */}
           {datosTurno && (datosTurno.registrosJenbacher.length > 0 || datosTurno.estadosMotores.length > 0) && (
             <div className="mt-12">
-              <h2 className="text-3xl font-bold text-white mb-8 text-center">🔬 Análisis Avanzado del Sistema</h2>
+              <h2 className="text-3xl font-bold text-white mb-8 text-center">🔬 Análisis Avanzado del Sistema {modoVista === 'historico' ? 'Histórico' : 'del Turno'}</h2>
 
               {/* Primera fila de gráficos */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -1191,7 +1261,7 @@ export default function DashboardPage() {
           {/* Detalles Completos del Turno Actual */}
           {datosTurno && (
             <div className="mt-12 space-y-8">
-              <h2 className="text-2xl font-bold text-white mb-6">📊 Detalles Completos del Turno Actual</h2>
+              <h2 className="text-2xl font-bold text-white mb-6">📊 Detalles Completos {modoVista === 'historico' ? 'Históricos' : 'del Turno Actual'}</h2>
 
               {/* Información del Turno */}
               <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-600/30">
@@ -1199,8 +1269,8 @@ export default function DashboardPage() {
                 {datosTurno.turno ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="bg-slate-700/30 rounded-lg p-4">
-                      <p className="text-gray-400 text-sm">ID del Turno</p>
-                      <p className="text-white font-mono text-sm">{datosTurno.turno.id || 'N/A'}</p>
+                      <p className="text-gray-400 text-sm">Turno #</p>
+                      <p className="text-white font-mono text-sm">{datosTurno.turno.id ? 'Activo' : 'N/A'}</p>
                     </div>
                     <div className="bg-slate-700/30 rounded-lg p-4">
                       <p className="text-gray-400 text-sm">Operador</p>
@@ -1255,8 +1325,8 @@ export default function DashboardPage() {
                       <div key={registro.id || index} className="bg-blue-500/10 rounded-lg p-4 border border-blue-500/20">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                           <div>
-                            <p className="text-gray-400 text-sm">ID Registro</p>
-                            <p className="text-white font-mono text-sm">{registro.id || 'N/A'}</p>
+                            <p className="text-gray-400 text-sm">Registro #</p>
+                            <p className="text-white font-mono text-sm">{index + 1}</p>
                           </div>
                           <div>
                             <p className="text-gray-400 text-sm">Fecha Registro</p>
@@ -1328,8 +1398,8 @@ export default function DashboardPage() {
                       <div key={estado.id || index} className="bg-red-500/10 rounded-lg p-4 border border-red-500/20">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           <div>
-                            <p className="text-gray-400 text-sm">ID Estado</p>
-                            <p className="text-white font-mono text-sm">{estado.id || 'N/A'}</p>
+                            <p className="text-gray-400 text-sm">Estado #</p>
+                            <p className="text-white font-mono text-sm">{index + 1}</p>
                           </div>
                           <div>
                             <p className="text-gray-400 text-sm">Fecha y Hora</p>
@@ -1371,8 +1441,8 @@ export default function DashboardPage() {
                       <div key={monitoreo.id || index} className="bg-yellow-500/10 rounded-lg p-4 border border-yellow-500/20">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                           <div>
-                            <p className="text-gray-400 text-sm">ID Monitoreo</p>
-                            <p className="text-white font-mono text-sm">{monitoreo.id || 'N/A'}</p>
+                            <p className="text-gray-400 text-sm">Monitoreo #</p>
+                            <p className="text-white font-mono text-sm">{index + 1}</p>
                           </div>
                           <div>
                             <p className="text-gray-400 text-sm">Fecha Creación</p>
@@ -1442,8 +1512,8 @@ export default function DashboardPage() {
                       <div key={bitacora.id || index} className="bg-green-500/10 rounded-lg p-4 border border-green-500/20">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           <div>
-                            <p className="text-gray-400 text-sm">ID Bitácora</p>
-                            <p className="text-white font-mono text-sm">{bitacora.id || 'N/A'}</p>
+                            <p className="text-gray-400 text-sm">Bitácora #</p>
+                            <p className="text-white font-mono text-sm">{index + 1}</p>
                           </div>
                           <div>
                             <p className="text-gray-400 text-sm">Fecha Creación</p>
