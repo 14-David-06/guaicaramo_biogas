@@ -12,7 +12,7 @@ export default function Footer() {
             {/* Logo */}
             <div className="flex justify-center">
               <Image
-                src="/logo-Guaicaramo.png"
+                src="/logo-guaicaramo.png"
                 alt="Logo Guaicaramo"
                 width={56}
                 height={56}

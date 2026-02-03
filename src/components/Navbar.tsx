@@ -49,7 +49,7 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-4">
               <Image
-                src="/logo-Guaicaramo.png"
+                src="/logo-guaicaramo.png"
                 alt="Logo Guaicaramo"
                 width={48}
                 height={48}
@@ -161,7 +161,7 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-300"
             >
               <Image
-                src="/logo-Guaicaramo.png"
+                src="/logo-guaicaramo.png"
                 alt="Logo Guaicaramo"
                 width={48}
                 height={48}

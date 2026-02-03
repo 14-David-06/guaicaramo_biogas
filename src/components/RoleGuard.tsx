@@ -54,7 +54,7 @@ export default function RoleGuard({
             <div className="flex justify-center mb-6">
               <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl p-4">
                 <Image
-                  src="/logo-Guaicaramo.png"
+                  src="/logo-guaicaramo.png"
                   alt="Logo Guaicaramo"
                   width={80}
                   height={80}

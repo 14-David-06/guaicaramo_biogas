@@ -198,7 +198,7 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
             {/* Logo container with glass effect */}
             <div className="bg-white/15 backdrop-blur-md rounded-3xl p-4 sm:p-6 border border-white/20 shadow-2xl">
               <Image
-                src="/logo-Guaicaramo.png"
+                src="/logo-guaicaramo.png"
                 alt="Logo Guaicaramo Biogas"
                 width={128}
                 height={128}
