@@ -13,7 +13,7 @@ export default function Footer() {
             <div className="flex justify-center">
               <Image
                 src="/logo-guaicaramo.png"
-                alt="Logo Guaicaramo"
+                alt="logo-guaicaramo"
                 width={56}
                 height={56}
                 className="h-10 sm:h-12 md:h-14 w-auto object-contain opacity-90"

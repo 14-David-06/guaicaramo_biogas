@@ -50,7 +50,7 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
             <div className="flex items-center space-x-4">
               <Image
                 src="/logo-guaicaramo.png"
-                alt="Logo Guaicaramo"
+                alt="logo-guaicaramoo"
                 width={48}
                 height={48}
                 className="h-8 sm:h-10 md:h-12 w-auto object-contain"
@@ -162,7 +162,7 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
             >
               <Image
                 src="/logo-guaicaramo.png"
-                alt="Logo Guaicaramo"
+                alt="logo-guaicaramoo"
                 width={48}
                 height={48}
                 className="h-8 sm:h-10 md:h-12 w-auto object-contain transition-transform duration-200"

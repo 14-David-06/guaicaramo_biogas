@@ -55,7 +55,7 @@ export default function RoleGuard({
               <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl p-4">
                 <Image
                   src="/logo-guaicaramo.png"
-                  alt="Logo Guaicaramo"
+                  alt="logo-guaicaramoo"
                   width={80}
                   height={80}
                   className="object-contain"

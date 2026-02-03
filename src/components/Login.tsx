@@ -199,7 +199,7 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
             <div className="bg-white/15 backdrop-blur-md rounded-3xl p-4 sm:p-6 border border-white/20 shadow-2xl">
               <Image
                 src="/logo-guaicaramo.png"
-                alt="Logo Guaicaramo Biogas"
+                alt="logo-guaicaramoo Biogas"
                 width={128}
                 height={128}
                 className="w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 object-contain"
