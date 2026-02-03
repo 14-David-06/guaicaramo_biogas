@@ -70,6 +70,21 @@ export default function RegistroBiodigestoresPage() {
     }
   };
 
+  // Función para obtener el nombre del biodigestor a partir de su ID
+  const obtenerNombreBiodigestor = (medicion: MedicionBiodigestores): string => {
+    // Intentar obtener el ID del biodigestor desde el campo de relación
+    const biodigestorId = medicion.fields['Biodigestor Monitoreado']?.[0];
+    
+    if (!biodigestorId) {
+      return 'No especificado';
+    }
+    
+    // Buscar el biodigestor en el listado cargado
+    const biodigestor = biodigestores.find(b => b.id === biodigestorId);
+    
+    return biodigestor?.fields['Nombre Biodigestores'] || 'Biodigestor desconocido';
+  };
+
   if (!loggedInUser) {
     return (
       <BackgroundLayout>
@@ -516,47 +531,81 @@ export default function RegistroBiodigestoresPage() {
                 <p className="text-gray-400 text-center py-8">No hay mediciones anteriores</p>
               ) : (
                 <div className="space-y-6">
-                  {mediciones.map((medicion) => (
-                    <div key={medicion.id} className="bg-gray-700/30 rounded-lg p-6 border border-gray-600/30">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <p className="text-sm text-gray-400">
-                            {formatearFecha(medicion.fields['Fecha Medicion'])}
-                          </p>
-                          <p className="text-sm text-green-400">
-                            Operador: {medicion.fields['Realiza Registro']}
-                          </p>
+                  {mediciones.map((medicion) => {
+                    const nombreBiodigestor = obtenerNombreBiodigestor(medicion);
+                    
+                    return (
+                      <div key={medicion.id} className="bg-gradient-to-br from-gray-700/40 to-gray-800/40 rounded-xl p-6 border border-gray-600/40 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-5 gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xl">📅</span>
+                              <p className="text-sm font-medium text-gray-300">
+                                {formatearFecha(medicion.fields['Fecha Medicion'])}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-lg">👤</span>
+                              <p className="text-sm text-green-400 font-medium">
+                                {medicion.fields['Realiza Registro']}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">🏭</span>
+                              <p className="text-sm font-semibold text-blue-400">
+                                {nombreBiodigestor}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                          <div className="bg-gradient-to-br from-blue-600/20 to-blue-500/10 p-4 rounded-lg border border-blue-500/30 hover:border-blue-400/50 transition-colors">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">💨</span>
+                              <p className="text-xs font-medium text-blue-300">CH4 (Max) %</p>
+                            </div>
+                            <p className="text-xl font-bold text-blue-400">{medicion.fields['CH4 (Max) %']}</p>
+                          </div>
+                          <div className="bg-gradient-to-br from-green-600/20 to-green-500/10 p-4 rounded-lg border border-green-500/30 hover:border-green-400/50 transition-colors">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">🌿</span>
+                              <p className="text-xs font-medium text-green-300">CO2 %</p>
+                            </div>
+                            <p className="text-xl font-bold text-green-400">{medicion.fields['CO2 %']}</p>
+                          </div>
+                          <div className="bg-gradient-to-br from-yellow-600/20 to-yellow-500/10 p-4 rounded-lg border border-yellow-500/30 hover:border-yellow-400/50 transition-colors">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">💡</span>
+                              <p className="text-xs font-medium text-yellow-300">O2 %</p>
+                            </div>
+                            <p className="text-xl font-bold text-yellow-400">{medicion.fields['02 %']}</p>
+                          </div>
+                          <div className="bg-gradient-to-br from-red-600/20 to-red-500/10 p-4 rounded-lg border border-red-500/30 hover:border-red-400/50 transition-colors">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">⚠️</span>
+                              <p className="text-xs font-medium text-red-300">H2S</p>
+                            </div>
+                            <p className="text-xl font-bold text-red-400">{medicion.fields['H2S']}</p>
+                          </div>
+                          <div className="bg-gradient-to-br from-orange-600/20 to-orange-500/10 p-4 rounded-lg border border-orange-500/30 hover:border-orange-400/50 transition-colors">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">🔥</span>
+                              <p className="text-xs font-medium text-orange-300">CO</p>
+                            </div>
+                            <p className="text-xl font-bold text-orange-400">{medicion.fields['CO']}</p>
+                          </div>
+                          <div className="bg-gradient-to-br from-purple-600/20 to-purple-500/10 p-4 rounded-lg border border-purple-500/30 hover:border-purple-400/50 transition-colors">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-lg">⚗️</span>
+                              <p className="text-xs font-medium text-purple-300">NO</p>
+                            </div>
+                            <p className="text-xl font-bold text-purple-400">{medicion.fields['NO']}</p>
+                          </div>
                         </div>
                       </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        <div className="bg-gray-600/30 p-3 rounded">
-                          <p className="text-xs text-gray-400">CH4 (Max) %</p>
-                          <p className="text-lg font-semibold text-blue-400">{medicion.fields['CH4 (Max) %']}</p>
-                        </div>
-                        <div className="bg-gray-600/30 p-3 rounded">
-                          <p className="text-xs text-gray-400">CO2 %</p>
-                          <p className="text-lg font-semibold text-green-400">{medicion.fields['CO2 %']}</p>
-                        </div>
-                        <div className="bg-gray-600/30 p-3 rounded">
-                          <p className="text-xs text-gray-400">O2 %</p>
-                          <p className="text-lg font-semibold text-yellow-400">{medicion.fields['02 %']}</p>
-                        </div>
-                        <div className="bg-gray-600/30 p-3 rounded">
-                          <p className="text-xs text-gray-400">H2S</p>
-                          <p className="text-lg font-semibold text-red-400">{medicion.fields['H2S']}</p>
-                        </div>
-                        <div className="bg-gray-600/30 p-3 rounded">
-                          <p className="text-xs text-gray-400">CO</p>
-                          <p className="text-lg font-semibold text-orange-400">{medicion.fields['CO']}</p>
-                        </div>
-                        <div className="bg-gray-600/30 p-3 rounded">
-                          <p className="text-xs text-gray-400">NO</p>
-                          <p className="text-lg font-semibold text-purple-400">{medicion.fields['NO']}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
