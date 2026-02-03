@@ -131,9 +131,7 @@ export default function LimpiezasPage() {
           'Equipos (manómetros, tuberías, medidores) limpios?': formData.equiposLimpios,
           'Equipos Jenbacher limpios (cuidado con controles)?': formData.jenbacherLimpios,
           'Observaciones': formData.observaciones,
-          'Realiza Registro': loggedInUser.nombre,
-          'ID': `LMP-${Date.now()}`,
-          'Fecha de creacion': new Date().toISOString()
+          'Realiza Registro': loggedInUser.nombre
         }
       };
 
