@@ -66,7 +66,45 @@ export default function DashboardPage() {
     return motor ? `${motor.fields['Nombre Motor']} ${motor.fields['Modelo Motor']} ${motor.fields['Número Serie']}` : motorId;
   };
 
+  // Función para obtener el último estado de cada motor único
+  const obtenerUltimosEstadosPorMotor = () => {
+    if (!datosTurno || datosTurno.estadosMotores.length === 0) return [];
+    
+    // Agrupar estados por motor ID
+    const estadosPorMotor = new Map<string, EstadoMotor>();
+    
+    // Ordenar por fecha descendente para obtener los más recientes primero
+    const estadosOrdenados = [...datosTurno.estadosMotores].sort((a, b) => {
+      const fechaA = new Date(a.fields['Fecha y Hora']).getTime();
+      const fechaB = new Date(b.fields['Fecha y Hora']).getTime();
+      return fechaB - fechaA; // Más reciente primero
+    });
+    
+    // Guardar solo el primer (más reciente) estado de cada motor
+    estadosOrdenados.forEach(estado => {
+      const motorId = Array.isArray(estado.fields['Motor']) 
+        ? estado.fields['Motor'][0] 
+        : estado.fields['Motor'];
+      
+      if (motorId && !estadosPorMotor.has(motorId)) {
+        estadosPorMotor.set(motorId, estado);
+      }
+    });
+    
+    return Array.from(estadosPorMotor.values());
+  };
+
   // Funciones para preparar datos de gráficos
+  const obtenerDatosH2S = () => {
+    if (!datosTurno || datosTurno.registrosJenbacher.length === 0) return null;
+    const registros = datosTurno.registrosJenbacher;
+    const ultimoRegistro = registros[registros.length - 1];
+    const h2s = ultimoRegistro.fields['ACIDO SULFIDRICO(H2S)'] || 0;
+    const maxH2S = Math.max(...registros.map(r => r.fields['ACIDO SULFIDRICO(H2S)'] || 0));
+    const promedioH2S = registros.reduce((sum, r) => sum + (r.fields['ACIDO SULFIDRICO(H2S)'] || 0), 0) / registros.length;
+    return { actual: h2s, maximo: maxH2S, promedio: promedioH2S };
+  };
+
   const prepararDatosComposicionGas = () => {
     if (!datosTurno || datosTurno.registrosJenbacher.length === 0) return null;
 
@@ -919,7 +957,15 @@ export default function DashboardPage() {
           {activeTab === 'resumen' && (
             <>
           {/* Panel de Estado de Motores - Nuevo */}
-          {datosTurno && (
+          {datosTurno && (() => {
+            // Obtener solo el último estado de cada motor único
+            const ultimosEstados = obtenerUltimosEstadosPorMotor();
+            const encendidos = ultimosEstados.filter(e => e.fields['Estado Motor'] === 'Encendido').length;
+            const apagados = ultimosEstados.filter(e => e.fields['Estado Motor'] === 'Apagado').length;
+            const totalMotores = ultimosEstados.length;
+            const operatividad = totalMotores > 0 ? Math.round((encendidos / totalMotores) * 100) : 0;
+            
+            return (
             <div className="mb-6 bg-gradient-to-br from-slate-800/70 to-slate-900/70 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-slate-600/30 shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-3">
@@ -932,13 +978,13 @@ export default function DashboardPage() {
                 </h3>
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    datosTurno.estadosMotores.filter(e => e.fields['Estado Motor'] === 'Apagado').length === 0
+                    apagados === 0
                       ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                       : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                   }`}>
-                    {datosTurno.estadosMotores.filter(e => e.fields['Estado Motor'] === 'Apagado').length === 0
+                    {apagados === 0
                       ? '✓ Todos Operativos'
-                      : `⚠ ${datosTurno.estadosMotores.filter(e => e.fields['Estado Motor'] === 'Apagado').length} Motor(es) Apagado(s)`
+                      : `⚠ ${apagados} Motor(es) Apagado(s)`
                     }
                   </span>
                 </div>
@@ -951,7 +997,7 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-green-400 text-xs font-medium uppercase tracking-wider">Encendidos</p>
                       <p className="text-3xl font-bold text-white mt-1">
-                        {datosTurno.estadosMotores.filter(e => e.fields['Estado Motor'] === 'Encendido').length}
+                        {encendidos}
                       </p>
                     </div>
                     <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
@@ -965,7 +1011,7 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-red-400 text-xs font-medium uppercase tracking-wider">Apagados</p>
                       <p className="text-3xl font-bold text-white mt-1">
-                        {datosTurno.estadosMotores.filter(e => e.fields['Estado Motor'] === 'Apagado').length}
+                        {apagados}
                       </p>
                     </div>
                     <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
@@ -979,7 +1025,7 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-blue-400 text-xs font-medium uppercase tracking-wider">Total Motores</p>
                       <p className="text-3xl font-bold text-white mt-1">
-                        {datosTurno.estadosMotores.length}
+                        {totalMotores}
                       </p>
                     </div>
                     <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
@@ -995,9 +1041,7 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-purple-400 text-xs font-medium uppercase tracking-wider">Operatividad</p>
                       <p className="text-3xl font-bold text-white mt-1">
-                        {datosTurno.estadosMotores.length > 0 
-                          ? Math.round((datosTurno.estadosMotores.filter(e => e.fields['Estado Motor'] === 'Encendido').length / datosTurno.estadosMotores.length) * 100)
-                          : 0}%
+                        {operatividad}%
                       </p>
                     </div>
                     <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
@@ -1011,7 +1055,7 @@ export default function DashboardPage() {
               
               {/* Lista detallada de motores */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {datosTurno.estadosMotores.map((estado, index) => {
+                {ultimosEstados.map((estado, index) => {
                   const motorId = estado.fields['Motor'];
                   const nombreMotor = Array.isArray(motorId) && motorId.length > 0 
                     ? obtenerNombreMotor(motorId[0])
@@ -1056,7 +1100,8 @@ export default function DashboardPage() {
                 })}
               </div>
             </div>
-          )}
+            );
+          })()}
           
           {/* Panel de Valores de Biogás en Tiempo Real */}
           {datosTurno && datosTurno.registrosJenbacher.length > 0 && (
@@ -1172,7 +1217,7 @@ export default function DashboardPage() {
                   Alertas del Sistema
                 </h3>
                 <span className="text-xs bg-slate-700/50 text-gray-300 px-2 py-1 rounded-full">
-                  {datosTurno ? datosTurno.estadosMotores.filter(e => e.fields['Estado Motor'] === 'Apagado').length : 0} alertas activas
+                  {datosTurno ? obtenerUltimosEstadosPorMotor().filter(e => e.fields['Estado Motor'] === 'Apagado').length : 0} alertas activas
                 </span>
               </div>
               <div className="space-y-2 sm:space-y-3">
@@ -1184,7 +1229,7 @@ export default function DashboardPage() {
                 ) : datosTurno ? (
                   <>
                     {/* Alertas basadas en motores apagados - MEJORADO CON NOMBRE ESPECÍFICO */}
-                    {datosTurno.estadosMotores
+                    {obtenerUltimosEstadosPorMotor()
                       .filter(estado => estado.fields['Estado Motor'] === 'Apagado')
                       .map((estado, index) => {
                         const motorId = estado.fields['Motor'];
@@ -1255,7 +1300,7 @@ export default function DashboardPage() {
                       })}
                     
                     {/* Si no hay alertas específicas, mostrar mensaje positivo */}
-                    {datosTurno.estadosMotores.filter(estado => estado.fields['Estado Motor'] === 'Apagado').length === 0 && 
+                    {obtenerUltimosEstadosPorMotor().filter(estado => estado.fields['Estado Motor'] === 'Apagado').length === 0 && 
                      datosTurno.monitoreoMotores.filter(monitoreo => {
                        const temp = monitoreo.fields['Temperatura'];
                        return typeof temp === 'number' && temp > 40;
@@ -1455,7 +1500,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 {/* Composición del Gas */}
                 <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-600/30">
-                  <div className="h-80">
+                  <div className="h-64">
                     {prepararDatosComposicionGas() && (
                       <Doughnut
                         data={prepararDatosComposicionGas()!}
@@ -1463,6 +1508,41 @@ export default function DashboardPage() {
                       />
                     )}
                   </div>
+                  {/* Indicador de H2S */}
+                  {obtenerDatosH2S() && (
+                    <div className="mt-4 p-4 bg-gradient-to-r from-amber-900/30 to-orange-900/30 rounded-xl border border-amber-500/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-amber-400 font-semibold text-sm flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+                          H₂S (Ácido Sulfhídrico)
+                        </span>
+                        <span className={`text-lg font-bold ${obtenerDatosH2S()!.actual > 300 ? 'text-red-400' : obtenerDatosH2S()!.actual > 200 ? 'text-amber-400' : 'text-green-400'}`}>
+                          {obtenerDatosH2S()!.actual.toFixed(0)} ppm
+                        </span>
+                      </div>
+                      <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${obtenerDatosH2S()!.actual > 300 ? 'bg-gradient-to-r from-red-500 to-red-400' : obtenerDatosH2S()!.actual > 200 ? 'bg-gradient-to-r from-amber-500 to-orange-400' : 'bg-gradient-to-r from-green-500 to-emerald-400'}`}
+                          style={{ width: `${Math.min((obtenerDatosH2S()!.actual / 500) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between text-xs text-slate-400 mt-1">
+                        <span>0 ppm</span>
+                        <span className="text-amber-400">Límite: 300 ppm</span>
+                        <span>500 ppm</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-3">
+                        <div className="text-center p-2 bg-slate-800/50 rounded-lg">
+                          <p className="text-slate-400 text-xs">Promedio</p>
+                          <p className="text-amber-300 font-semibold">{obtenerDatosH2S()!.promedio.toFixed(1)} ppm</p>
+                        </div>
+                        <div className="text-center p-2 bg-slate-800/50 rounded-lg">
+                          <p className="text-slate-400 text-xs">Máximo</p>
+                          <p className="text-amber-300 font-semibold">{obtenerDatosH2S()!.maximo.toFixed(0)} ppm</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Potencia vs Consumo de Biogás */}
@@ -1599,7 +1679,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
                 {/* Composición del Gas */}
                 <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-slate-600/30 shadow-xl">
-                  <div className="h-64 sm:h-80">
+                  <div className="h-52 sm:h-64">
                     {prepararDatosComposicionGas() && (
                       <Doughnut
                         data={prepararDatosComposicionGas()!}
@@ -1607,6 +1687,41 @@ export default function DashboardPage() {
                       />
                     )}
                   </div>
+                  {/* Indicador de H2S */}
+                  {obtenerDatosH2S() && (
+                    <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-amber-900/30 to-orange-900/30 rounded-xl border border-amber-500/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-amber-400 font-semibold text-xs sm:text-sm flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-500"></span>
+                          H₂S (Ácido Sulfhídrico)
+                        </span>
+                        <span className={`text-base sm:text-lg font-bold ${obtenerDatosH2S()!.actual > 300 ? 'text-red-400' : obtenerDatosH2S()!.actual > 200 ? 'text-amber-400' : 'text-green-400'}`}>
+                          {obtenerDatosH2S()!.actual.toFixed(0)} ppm
+                        </span>
+                      </div>
+                      <div className="h-1.5 sm:h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${obtenerDatosH2S()!.actual > 300 ? 'bg-gradient-to-r from-red-500 to-red-400' : obtenerDatosH2S()!.actual > 200 ? 'bg-gradient-to-r from-amber-500 to-orange-400' : 'bg-gradient-to-r from-green-500 to-emerald-400'}`}
+                          style={{ width: `${Math.min((obtenerDatosH2S()!.actual / 500) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between text-[10px] sm:text-xs text-slate-400 mt-1">
+                        <span>0 ppm</span>
+                        <span className="text-amber-400">Límite: 300 ppm</span>
+                        <span>500 ppm</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-2 sm:mt-3">
+                        <div className="text-center p-1.5 sm:p-2 bg-slate-800/50 rounded-lg">
+                          <p className="text-slate-400 text-[10px] sm:text-xs">Promedio</p>
+                          <p className="text-amber-300 font-semibold text-sm sm:text-base">{obtenerDatosH2S()!.promedio.toFixed(1)} ppm</p>
+                        </div>
+                        <div className="text-center p-1.5 sm:p-2 bg-slate-800/50 rounded-lg">
+                          <p className="text-slate-400 text-[10px] sm:text-xs">Máximo</p>
+                          <p className="text-amber-300 font-semibold text-sm sm:text-base">{obtenerDatosH2S()!.maximo.toFixed(0)} ppm</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Potencia vs Consumo de Biogás */}
@@ -1946,29 +2061,38 @@ export default function DashboardPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
-                  Estados de Motores
+                  Estados de Motores (Actual)
                 </div>
-                <span className="text-sm bg-red-500/20 px-3 py-1 rounded-full text-red-400">{datosTurno.estadosMotores.length}</span>
+                <span className="text-sm bg-red-500/20 px-3 py-1 rounded-full text-red-400">{obtenerUltimosEstadosPorMotor().length}</span>
               </h3>
-              {datosTurno.estadosMotores.length > 0 ? (
+              {obtenerUltimosEstadosPorMotor().length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {datosTurno.estadosMotores.slice(0, 6).map((estado, index) => (
+                  {obtenerUltimosEstadosPorMotor().map((estado, index) => {
+                    const motorId = estado.fields['Motor'];
+                    const nombreMotor = Array.isArray(motorId) && motorId.length > 0 
+                      ? obtenerNombreMotor(motorId[0])
+                      : typeof motorId === 'string' 
+                        ? obtenerNombreMotor(motorId)
+                        : `Motor ${index + 1}`;
+                    
+                    return (
                     <div key={estado.id || index} className="bg-red-500/10 rounded-xl p-3 sm:p-4 border border-red-500/10 flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${estado.fields['Estado Motor'] === 'Encendido' ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
                         <div className={`w-3 h-3 rounded-full ${estado.fields['Estado Motor'] === 'Encendido' ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></div>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`font-semibold text-sm ${estado.fields['Estado Motor'] === 'Encendido' ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {estado.fields['Estado Motor'] || 'N/A'}
+                          {nombreMotor}
                         </p>
                         <p className="text-gray-400 text-xs truncate">
-                          {typeof estado.fields['Fecha y Hora'] === 'string'
+                          {estado.fields['Estado Motor']} - {typeof estado.fields['Fecha y Hora'] === 'string'
                             ? new Date(estado.fields['Fecha y Hora']).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
                             : 'N/A'}
                         </p>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-gray-400 text-center py-4">No hay estados de motores registrados</p>
