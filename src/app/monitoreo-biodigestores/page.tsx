@@ -5,7 +5,7 @@ import Footer from '@/components/Footer';
 import BackgroundLayout from '@/components/BackgroundLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect, useMemo } from 'react';
-import { airtableService, MedicionBiodigestores } from '@/utils/airtable';
+import { airtableService, MedicionBiodigestores, Biodigestor } from '@/utils/airtable';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -40,6 +40,8 @@ ChartJS.register(
 export default function MonitoreoBiodigestoresPage() {
   const { user: loggedInUser, logout } = useAuth();
   const [mediciones, setMediciones] = useState<MedicionBiodigestores[]>([]);
+  const [biodigestores, setBiodigestores] = useState<Biodigestor[]>([]);
+  const [biodigestorSeleccionado, setBiodigestorSeleccionado] = useState<string>('todos');
   const [cargandoDatos, setCargandoDatos] = useState(true);
   const [errorDatos, setErrorDatos] = useState<string | null>(null);
 
@@ -67,6 +69,11 @@ export default function MonitoreoBiodigestoresPage() {
   // Filtrar mediciones basado en los filtros aplicados
   const medicionesFiltradas = useMemo(() => {
     return mediciones.filter((medicion) => {
+      // Filtro por biodigestor
+      if (biodigestorSeleccionado !== 'todos') {
+        const biodigestorIds = medicion.fields['Biodigestor Monitoreado'] || [];
+        if (!biodigestorIds.includes(biodigestorSeleccionado)) return false;
+      }
       // Filtro por fecha
       if (filtros.fechaDesde || filtros.fechaHasta) {
         const fechaMedicion = typeof medicion.fields['Fecha Medicion'] === 'string'
@@ -115,14 +122,24 @@ export default function MonitoreoBiodigestoresPage() {
 
       return true;
     });
-  }, [mediciones, filtros]);
+  }, [mediciones, filtros, biodigestorSeleccionado]);
 
   // Cargar datos de mediciones de biodigestores
   useEffect(() => {
     if (loggedInUser) {
       cargarMedicionesBiodigestores();
+      cargarBiodigestores();
     }
   }, [loggedInUser]);
+
+  const cargarBiodigestores = async () => {
+    try {
+      const datos = await airtableService.obtenerBiodigestores();
+      setBiodigestores(datos);
+    } catch (error) {
+      console.error('Error cargando biodigestores:', error);
+    }
+  };
 
   const cargarMedicionesBiodigestores = async () => {
     try {
@@ -157,7 +174,23 @@ export default function MonitoreoBiodigestoresPage() {
       noMin: '',
       noMax: '',
     });
+    setBiodigestorSeleccionado('todos');
   };
+
+  // Función para obtener el nombre del biodigestor a partir de su ID
+  const obtenerNombreBiodigestor = (medicion: MedicionBiodigestores): string => {
+    const biodigestorId = medicion.fields['Biodigestor Monitoreado']?.[0];
+    if (!biodigestorId) return 'No especificado';
+    const biodigestor = biodigestores.find(b => b.id === biodigestorId);
+    return biodigestor?.fields['Nombre Biodigestores'] || 'Biodigestor desconocido';
+  };
+
+  // Obtener nombre del biodigestor seleccionado para reportes
+  const nombreBiodigestorSeleccionado = useMemo(() => {
+    if (biodigestorSeleccionado === 'todos') return 'Todos los biodigestores';
+    const bio = biodigestores.find(b => b.id === biodigestorSeleccionado);
+    return bio?.fields['Nombre Biodigestores'] || 'Biodigestor';
+  }, [biodigestorSeleccionado, biodigestores]);
 
   // Función para exportar a PDF
   const exportarPDF = () => {
@@ -177,6 +210,11 @@ export default function MonitoreoBiodigestoresPage() {
       yPosition += 10;
     }
 
+    if (biodigestorSeleccionado !== 'todos') {
+      doc.text(`Biodigestor: ${nombreBiodigestorSeleccionado}`, 20, yPosition);
+      yPosition += 10;
+    }
+
     if (filtros.operador) {
       doc.text(`Operador: ${filtros.operador}`, 20, yPosition);
       yPosition += 10;
@@ -190,6 +228,7 @@ export default function MonitoreoBiodigestoresPage() {
       typeof medicion.fields['Fecha Medicion'] === 'string'
         ? format(new Date(medicion.fields['Fecha Medicion']), 'dd/MM/yyyy HH:mm', { locale: es })
         : 'N/A',
+      obtenerNombreBiodigestor(medicion),
       (medicion.fields['CH4 (Max) %'] || 0).toString(),
       (medicion.fields['CO2 %'] || 0).toString(),
       (medicion.fields['O2 %'] || 0).toString(),
@@ -201,7 +240,7 @@ export default function MonitoreoBiodigestoresPage() {
 
     // Agregar tabla
     autoTable(doc, {
-      head: [['Fecha', 'CH₄ (%)', 'CO₂ (%)', 'O₂ (%)', 'H₂S (ppm)', 'CO (ppm)', 'NO (ppm)', 'Operador']],
+      head: [['Fecha', 'Biodigestor', 'CH₄ (%)', 'CO₂ (%)', 'O₂ (%)', 'H₂S (ppm)', 'CO (ppm)', 'NO (ppm)', 'Operador']],
       body: tableData,
       startY: yPosition,
       styles: { fontSize: 8 },
@@ -238,6 +277,7 @@ export default function MonitoreoBiodigestoresPage() {
       'Fecha': typeof medicion.fields['Fecha Medicion'] === 'string'
         ? format(new Date(medicion.fields['Fecha Medicion']), 'dd/MM/yyyy HH:mm', { locale: es })
         : 'N/A',
+      'Biodigestor': obtenerNombreBiodigestor(medicion),
       'CH4 (%)': medicion.fields['CH4 (Max) %'] || 0,
       'CO2 (%)': medicion.fields['CO2 %'] || 0,
       'O2 (%)': medicion.fields['O2 %'] || 0,
@@ -405,7 +445,7 @@ export default function MonitoreoBiodigestoresPage() {
       },
       title: {
         display: true,
-        text: 'Composición Actual del Gas',
+        text: biodigestorSeleccionado === 'todos' ? 'Composición Actual del Gas' : `Composición Actual - ${nombreBiodigestorSeleccionado}`,
         color: 'white',
         font: {
           size: 16,
@@ -425,7 +465,7 @@ export default function MonitoreoBiodigestoresPage() {
     plugins: {
       title: {
         display: true,
-        text: 'Tendencia de Contaminantes',
+        text: biodigestorSeleccionado === 'todos' ? 'Tendencia de Contaminantes' : `Contaminantes - ${nombreBiodigestorSeleccionado}`,
         color: 'white',
         font: {
           size: 16,
@@ -473,7 +513,7 @@ export default function MonitoreoBiodigestoresPage() {
     plugins: {
       title: {
         display: true,
-        text: 'Composición de Gases a lo Largo del Tiempo',
+        text: biodigestorSeleccionado === 'todos' ? 'Composición de Gases a lo Largo del Tiempo' : `Gases - ${nombreBiodigestorSeleccionado}`,
         color: 'white',
         font: {
           size: 16,
@@ -552,6 +592,40 @@ export default function MonitoreoBiodigestoresPage() {
               <div className="text-center mb-12">
                 <h1 className="text-4xl font-bold text-white mb-4">Monitoreo de Biodigestores</h1>
                 <p className="text-gray-300 text-lg">Monitoreo y control en tiempo real de biodigestores</p>
+
+                {/* Selector de Biodigestor */}
+                <div className="mt-8 mb-4">
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button
+                      onClick={() => setBiodigestorSeleccionado('todos')}
+                      className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border ${
+                        biodigestorSeleccionado === 'todos'
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-400 shadow-lg shadow-green-500/25'
+                          : 'bg-slate-800/50 text-gray-300 border-slate-600/30 hover:bg-slate-700/50 hover:border-slate-500/50'
+                      }`}
+                    >
+                      🏭 Todos los Biodigestores
+                    </button>
+                    {biodigestores.map((bio) => (
+                      <button
+                        key={bio.id}
+                        onClick={() => setBiodigestorSeleccionado(bio.id)}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border ${
+                          biodigestorSeleccionado === bio.id
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-400 shadow-lg shadow-green-500/25'
+                            : 'bg-slate-800/50 text-gray-300 border-slate-600/30 hover:bg-slate-700/50 hover:border-slate-500/50'
+                        }`}
+                      >
+                        🔬 {bio.fields['Nombre Biodigestores']}
+                      </button>
+                    ))}
+                  </div>
+                  {biodigestorSeleccionado !== 'todos' && (
+                    <p className="text-green-400 text-sm mt-3 font-medium">
+                      Mostrando datos de: {nombreBiodigestorSeleccionado}
+                    </p>
+                  )}
+                </div>
 
                 {/* Panel de Filtros y Exportación */}
                 <div className="mt-8 bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl border border-slate-600/30 p-6">
@@ -640,8 +714,20 @@ export default function MonitoreoBiodigestoresPage() {
                           </select>
                         </div>
 
-                        {/* Espacio vacío para alineación */}
-                        <div></div>
+                        {/* Filtro de Biodigestor (en panel de filtros) */}
+                        <div>
+                          <label className="block text-sm font-medium text-green-300 mb-2">Biodigestor</label>
+                          <select
+                            value={biodigestorSeleccionado}
+                            onChange={(e) => setBiodigestorSeleccionado(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                          >
+                            <option value="todos">Todos los biodigestores</option>
+                            {biodigestores.map(bio => (
+                              <option key={bio.id} value={bio.id}>{bio.fields['Nombre Biodigestores']}</option>
+                            ))}
+                          </select>
+                        </div>
 
                         {/* Rangos de CH4 */}
                         <div>
@@ -796,7 +882,9 @@ export default function MonitoreoBiodigestoresPage() {
               {/* Gráficos de Análisis */}
               {medicionesFiltradas.length > 0 && (
                 <div className="space-y-8">
-                  <h2 className="text-3xl font-bold text-white mb-8 text-center">📈 Análisis de Datos de Biodigestores</h2>
+                  <h2 className="text-3xl font-bold text-white mb-8 text-center">
+                    📈 Análisis de Datos {biodigestorSeleccionado !== 'todos' ? `- ${nombreBiodigestorSeleccionado}` : 'de Biodigestores'}
+                  </h2>
 
                   {/* Primera fila de gráficos */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -849,6 +937,7 @@ export default function MonitoreoBiodigestoresPage() {
                         <thead className="bg-slate-700/30">
                           <tr>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Fecha</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Biodigestor</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">CH₄ (%)</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">CO₂ (%)</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">O₂ (%)</th>
@@ -865,6 +954,9 @@ export default function MonitoreoBiodigestoresPage() {
                                 {typeof medicion.fields['Fecha Medicion'] === 'string'
                                   ? new Date(medicion.fields['Fecha Medicion']).toLocaleString('es-CO')
                                   : 'N/A'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-emerald-300 font-medium">
+                                {obtenerNombreBiodigestor(medicion)}
                               </td>
                               <td className="px-4 py-3 text-sm text-green-400 font-medium">
                                 {medicion.fields['CH4 (Max) %'] || 0}%
