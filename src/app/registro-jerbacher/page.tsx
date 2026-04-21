@@ -10,7 +10,7 @@ import { airtableService, Motor, Biodigestor } from '@/utils/airtable';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { useRouter } from 'next/navigation';
 
-export default function RegistroJerbacherPage() {
+export default function RegistroJenbacherPage() {
   const { user: loggedInUser, logout } = useAuth();
   const router = useRouter();
 
@@ -232,7 +232,7 @@ export default function RegistroJerbacherPage() {
                 </svg>
               </div>
               <h1 className="text-xl sm:text-2xl font-bold mb-3">Acceso Requerido</h1>
-              <p className="text-gray-300 mb-6 text-sm sm:text-base">Debes iniciar sesión para acceder al registro Jerbacher.</p>
+              <p className="text-gray-300 mb-6 text-sm sm:text-base">Debes iniciar sesión para acceder al registro Jenbacher.</p>
               <button
                 onClick={() => window.location.href = '/'}
                 className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center space-x-2"
@@ -366,7 +366,7 @@ export default function RegistroJerbacherPage() {
         <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
           <div className="max-w-4xl mx-auto py-12">
             <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold text-white mb-4">Registro Jerbacher</h1>
+              <h1 className="text-4xl font-bold text-white mb-4">Registro Jenbacher</h1>
               <p className="text-gray-300 text-lg">Parámetros diarios del sistema de biogás</p>
             </div>
 

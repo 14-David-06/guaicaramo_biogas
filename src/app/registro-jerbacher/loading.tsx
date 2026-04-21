@@ -1,7 +1,7 @@
 import BackgroundLayout from '@/components/BackgroundLayout';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 
-export default function RegistroJerbacherLoading() {
+export default function RegistroJenbacherLoading() {
   return (
     <BackgroundLayout>
       <div className="min-h-screen flex flex-col">

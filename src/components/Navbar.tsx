@@ -85,7 +85,7 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
           description: "Control y supervisión de motores"
         },
         {
-          name: "Registro Jerbacher",
+          name: "Registro Jenbacher",
           href: "/registro-jerbacher",
           description: "Parámetros diarios del sistema"
         },

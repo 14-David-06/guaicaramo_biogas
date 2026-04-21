@@ -50,7 +50,7 @@ Todas las páginas principales han sido actualizadas para usar el sistema:
 
 1. **Página Principal** (`/`)
 2. **Abrir Turno** (`/abrir-turno`)
-3. **Registro Jerbacher** (`/registro-jerbacher`)
+3. **Registro Jenbacher** (`/registro-jerbacher`)
 4. **Bitácora Biogás** (`/bitacora-biogas`)
 
 ### **Protección de Rutas**
