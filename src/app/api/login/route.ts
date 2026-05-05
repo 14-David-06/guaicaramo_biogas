@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Airtable from 'airtable';
+import Airtable, { FieldSet, Record as AirtableRecord } from 'airtable';
 import bcrypt from 'bcryptjs';
 
 // Usar las nuevas variables de entorno configuradas
@@ -12,26 +12,54 @@ if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID || !EQUIPO_BIOGAS_TABLE_ID) {
 }
 
 const base = new Airtable({ apiKey: AIRTABLE_API_KEY }).base(AIRTABLE_BASE_ID);
+const USER_FIELDS = ['Cedula', 'Nombre', 'Cargo', 'Hash', 'Salt'];
+
+// Sanitiza la cedula para uso en filterByFormula (solo digitos)
+function sanitizeCedula(value: unknown): string {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
+async function getUserRecord(
+  recordId?: string,
+  cedula?: string
+): Promise<AirtableRecord<FieldSet> | null> {
+  // Mas rapido: lookup directo por id
+  if (recordId) {
+    try {
+      return await base(EQUIPO_BIOGAS_TABLE_ID!).find(recordId);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!cedula) return null;
+
+  const records = await base(EQUIPO_BIOGAS_TABLE_ID!)
+    .select({
+      filterByFormula: `{Cedula} = '${cedula}'`,
+      maxRecords: 1,
+      fields: USER_FIELDS,
+    })
+    .firstPage();
+
+  return records[0] || null;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, cedula, password } = await request.json();
+    const body = await request.json();
+    const { action, password } = body;
+    const cedula = sanitizeCedula(body.cedula);
+    const recordId: string | undefined = body.recordId;
 
     if (action === 'check_cedula') {
-      // Check if cedula exists
-      const records = await base(EQUIPO_BIOGAS_TABLE_ID!)
-        .select({
-          filterByFormula: `{Cedula} = '${cedula}'`,
-          maxRecords: 1
-        })
-        .firstPage();
+      const record = await getUserRecord(undefined, cedula);
 
-      if (records.length === 0) {
+      if (!record) {
         return NextResponse.json({ exists: false }, { status: 200 });
       }
 
-      const record = records[0];
-      const hasPassword = record.fields.Hash ? true : false;
+      const hasPassword = !!record.fields.Hash;
 
       return NextResponse.json({
         exists: true,
@@ -39,24 +67,18 @@ export async function POST(request: NextRequest) {
         user: {
           id: record.id,
           nombre: record.fields.Nombre,
-          cargo: record.fields.Cargo
-        }
+          cargo: record.fields.Cargo,
+          cedula: record.fields.Cedula,
+        },
       }, { status: 200 });
 
     } else if (action === 'set_password') {
-      // Set new password
-      const records = await base(EQUIPO_BIOGAS_TABLE_ID!)
-        .select({
-          filterByFormula: `{Cedula} = '${cedula}'`,
-          maxRecords: 1
-        })
-        .firstPage();
+      const record = await getUserRecord(recordId, cedula);
 
-      if (records.length === 0) {
+      if (!record) {
         return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
       }
 
-      const record = records[0];
       if (record.fields.Hash) {
         return NextResponse.json({ error: 'El usuario ya tiene contraseña' }, { status: 400 });
       }
@@ -66,30 +88,24 @@ export async function POST(request: NextRequest) {
 
       await base(EQUIPO_BIOGAS_TABLE_ID!).update(record.id, {
         Hash: hash,
-        Salt: salt
+        Salt: salt,
       });
 
       return NextResponse.json({ success: true }, { status: 200 });
 
     } else if (action === 'login') {
-      // Login with password
-      const records = await base(EQUIPO_BIOGAS_TABLE_ID!)
-        .select({
-          filterByFormula: `{Cedula} = '${cedula}'`,
-          maxRecords: 1
-        })
-        .firstPage();
+      const record = await getUserRecord(recordId, cedula);
 
-      if (records.length === 0) {
+      if (!record) {
         return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 401 });
       }
 
-      const record = records[0];
-      if (!record.fields.Hash) {
+      const hash = record.fields.Hash as string | undefined;
+      if (!hash) {
         return NextResponse.json({ error: 'Contraseña no configurada' }, { status: 401 });
       }
 
-      const isValid = await bcrypt.compare(password, record.fields.Hash as string);
+      const isValid = await bcrypt.compare(password, hash);
       if (!isValid) {
         return NextResponse.json({ error: 'Contraseña incorrecta' }, { status: 401 });
       }
@@ -100,8 +116,8 @@ export async function POST(request: NextRequest) {
           id: record.id,
           nombre: record.fields.Nombre,
           cargo: record.fields.Cargo,
-          cedula: record.fields.Cedula
-        }
+          cedula: record.fields.Cedula,
+        },
       }, { status: 200 });
     }
 

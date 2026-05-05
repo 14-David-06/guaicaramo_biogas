@@ -17,19 +17,20 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [userInfo, setUserInfo] = useState<User | null>(null);
+  const [recordId, setRecordId] = useState<string>('');
+
+  const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Solo permitir dígitos numéricos, sin mostrar mensaje de error
+    const onlyDigits = e.target.value.replace(/\D/g, '');
+    setCedula(onlyDigits);
+  };
 
   const handleCedulaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (!cedula.trim()) {
-      setError('Por favor ingrese su cédula');
-      return;
-    }
 
-    // Validación básica de cédula (solo números)
-    if (!/^\d+$/.test(cedula)) {
-      setError('La cédula debe contener solo números');
+    if (!cedula) {
+      setError('Por favor ingrese su cédula');
       return;
     }
 
@@ -59,6 +60,7 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
       }
 
       setUserInfo(data.user);
+      setRecordId(data.user?.id || '');
 
       if (data.hasPassword) {
         setStep('password');
@@ -101,7 +103,8 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
         },
         body: JSON.stringify({
           action: 'set_password',
-          cedula: cedula.trim(),
+          cedula,
+          recordId,
           password,
         }),
       });
@@ -112,7 +115,6 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
         throw new Error(data.error || 'Error al configurar contraseña');
       }
 
-      alert('Contraseña configurada exitosamente.');
       if (onLoginSuccess && userInfo) {
         onLoginSuccess(userInfo);
       }
@@ -142,7 +144,8 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
         },
         body: JSON.stringify({
           action: 'login',
-          cedula: cedula.trim(),
+          cedula,
+          recordId,
           password,
         }),
       });
@@ -153,7 +156,6 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
         throw new Error(data.error || 'Error de autenticación');
       }
 
-      alert(`Bienvenido ${data.user.nombre}!`);
       if (onLoginSuccess) {
         onLoginSuccess(data.user);
       }
@@ -171,6 +173,7 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
       setConfirmPassword('');
       setError('');
       setUserInfo(null);
+      setRecordId('');
     } else {
       onBack();
     }
@@ -229,7 +232,10 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
                   type="text"
                   id="cedula"
                   value={cedula}
-                  onChange={(e) => setCedula(e.target.value)}
+                  onChange={handleCedulaChange}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={15}
                   className="w-full px-4 py-3 sm:py-4 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm sm:text-base"
                   placeholder="Ej: 1234567890"
                   autoComplete="username"
@@ -244,9 +250,20 @@ export default function Login({ onBack, onLoginSuccess }: LoginProps) {
 
               <button
                 type="submit"
-                className="w-full bg-green-500 hover:bg-green-600 text-white py-3 sm:py-4 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg text-sm sm:text-base"
+                disabled={isLoading}
+                className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white py-3 sm:py-4 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:transform-none text-sm sm:text-base"
               >
-                Continuar
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-4 w-4 sm:h-5 sm:w-5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Verificando...
+                  </div>
+                ) : (
+                  'Continuar'
+                )}
               </button>
             </form>
           ) : step === 'new_password' ? (
