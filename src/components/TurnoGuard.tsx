@@ -17,7 +17,7 @@ interface TurnoActivo {
   fechaInicio: string;
 }
 
-const PRIVILEGED_ROLES = [
+export const PRIVILEGED_ROLES = [
   'Ingeniera - Jefe de planta',
   'Jefe director de planta',
   'Desarrollador',

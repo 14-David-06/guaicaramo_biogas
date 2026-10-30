@@ -3,12 +3,17 @@
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BackgroundLayout from '@/components/BackgroundLayout';
-import TurnoGuard from '@/components/TurnoGuard';
+import TurnoGuard, { PRIVILEGED_ROLES } from '@/components/TurnoGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { useFormPersistence } from '@/hooks/useFormPersistence';
-import { airtableService, Motor, EstadoMotor } from '@/utils/airtable';
+import { airtableService, Motor, EstadoMotor, MonitoreoMotor } from '@/utils/airtable';
+import { evaluarDeltas, lecturasDeMonitoreo, type DeltaContador } from '@/lib/informe/contadores';
 import { useState, useEffect } from 'react';
+
+// Margen sobre el tiempo real transcurrido para el horómetro: la lectura anterior
+// puede haberse digitado unos minutos después de tomarla.
+const TOLERANCIA_HORAS = 0.5;
 
 interface MotorConEstado {
   motor: Motor;
@@ -38,6 +43,16 @@ interface MonitoreoModal {
   nombreMotor: string;
   onSubmit: (datosMonitoreo: Record<string, number>) => void;
   onCancel: () => void;
+  /** Lectura anterior del motor: undefined mientras carga, null si no hay. */
+  ultimoRegistro?: MonitoreoMotor | null;
+  /** Lectura digitada y sus deltas, pendiente de confirmar por el operador. */
+  revision?: RevisionLectura | null;
+}
+
+interface RevisionLectura {
+  datos: Record<string, number>;
+  deltas: DeltaContador[];
+  horasTranscurridas: number | null;
 }
 
 interface ResumenInicioTurno {
@@ -217,7 +232,14 @@ export default function MonitoreoMotoresPage() {
       motorId,
       nombreMotor,
       onSubmit: (datosMonitoreo) => registrarDatosMotor(motorId, nombreMotor, datosMonitoreo),
-      onCancel: () => setModalMonitoreo(prev => ({ ...prev, isOpen: false }))
+      onCancel: () => setModalMonitoreo(prev => ({ ...prev, isOpen: false })),
+      ultimoRegistro: undefined,
+      revision: null
+    });
+
+    // La lectura anterior es la apertura contra la que se valida la nueva
+    airtableService.obtenerUltimoMonitoreoMotor(motorId).then((ultimoRegistro) => {
+      setModalMonitoreo(prev => prev.motorId === motorId ? { ...prev, ultimoRegistro } : prev);
     });
   };
 
@@ -667,6 +689,14 @@ export default function MonitoreoMotoresPage() {
 
     if (!modalMonitoreo.isOpen) return null;
 
+    const { ultimoRegistro, revision } = modalMonitoreo;
+    const puedeForzar = !!loggedInUser && PRIVILEGED_ROLES.includes(loggedInUser.cargo);
+
+    const guardar = (datos: Record<string, number>) => {
+      modalMonitoreo.onSubmit(datos);
+      clearDatos();
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       // Convertir strings a números antes de enviar
@@ -674,9 +704,27 @@ export default function MonitoreoMotoresPage() {
         acc[key] = parseFloat(value as string) || 0;
         return acc;
       }, {} as Record<string, number>);
-      
-      modalMonitoreo.onSubmit(datosNumericos);
-      clearDatos();
+
+      // Primer registro del motor: no hay apertura contra la cual comparar
+      if (!ultimoRegistro) {
+        guardar(datosNumericos);
+        return;
+      }
+
+      // La lectura nueva cierra el registro anterior: el delta debe ser físicamente posible
+      const desde = Date.parse(ultimoRegistro.fields['Fecha de creacion']);
+      const horasTranscurridas = Number.isFinite(desde) ? (Date.now() - desde) / (60 * 60 * 1000) : null;
+      const deltas = evaluarDeltas(
+        lecturasDeMonitoreo(ultimoRegistro.fields).inicio,
+        {
+          horometro: datosNumericos['Horometro Inicial'],
+          arranques: datosNumericos['Arranques Inicio'],
+          m3: datosNumericos['M3 de Inicio'],
+          energia: datosNumericos['Kw de Inicio']
+        },
+        horasTranscurridas === null ? undefined : horasTranscurridas + TOLERANCIA_HORAS
+      );
+      setModalMonitoreo(prev => ({ ...prev, revision: { datos: datosNumericos, deltas, horasTranscurridas } }));
     };
 
     const handleChange = (field: string, value: string) => {
@@ -716,6 +764,15 @@ export default function MonitoreoMotoresPage() {
             </div>
           </div>
 
+          {revision && ultimoRegistro ? (
+            <RevisionMonitoreo
+              revision={revision}
+              ultimoRegistro={ultimoRegistro}
+              puedeForzar={puedeForzar}
+              onCorregir={() => setModalMonitoreo(prev => ({ ...prev, revision: null }))}
+              onGuardar={() => guardar(revision.datos)}
+            />
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {campos.map((campo) => (
@@ -753,13 +810,117 @@ export default function MonitoreoMotoresPage() {
               </button>
               <button
                 type="submit"
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                disabled={ultimoRegistro === undefined}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 disabled:opacity-50 disabled:cursor-wait text-white rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
               >
                 <span>📊</span>
-                <span>Completar Registro</span>
+                <span>{ultimoRegistro === undefined ? 'Cargando lectura anterior…' : 'Completar Registro'}</span>
               </button>
             </div>
           </form>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Paso de confirmación del modal de monitoreo: muestra lo que se va a registrar
+  // desde la lectura anterior y bloquea los deltas físicamente imposibles.
+  const RevisionMonitoreo = ({ revision, ultimoRegistro, puedeForzar, onCorregir, onGuardar }: {
+    revision: RevisionLectura;
+    ultimoRegistro: MonitoreoMotor;
+    puedeForzar: boolean;
+    onCorregir: () => void;
+    onGuardar: () => void;
+  }) => {
+    const anterior = lecturasDeMonitoreo(ultimoRegistro.fields).inicio;
+    const valorAnterior: Record<DeltaContador['etiqueta'], number | null> = {
+      'energía': anterior.energia,
+      'm³': anterior.m3,
+      'horómetro': anterior.horometro,
+      'arranques': anterior.arranques
+    };
+    const conProblema = revision.deltas.filter(d => d.problema);
+    const bloqueado = conProblema.length > 0;
+    const fmt = (n: number | null, decimales = 1) =>
+      n === null ? '—' : n.toLocaleString('es-CO', { maximumFractionDigits: decimales });
+    const fechaAnterior = new Date(ultimoRegistro.fields['Fecha de creacion']).toLocaleString('es-CO', {
+      timeZone: 'America/Bogota', dateStyle: 'short', timeStyle: 'short'
+    });
+
+    return (
+      <div className="space-y-5">
+        <div className={`rounded-lg p-4 border text-sm ${bloqueado
+          ? 'bg-red-500/10 border-red-400/40 text-red-200'
+          : 'bg-blue-500/10 border-blue-400/30 text-blue-200'}`}>
+          <p className="font-semibold mb-1">
+            {bloqueado ? '⛔ Revisa la lectura antes de guardar' : '✅ Confirma lo que vas a registrar'}
+          </p>
+          <p>
+            Desde la lectura anterior ({fechaAnterior}
+            {ultimoRegistro.fields['Realiza Registro'] ? `, ${ultimoRegistro.fields['Realiza Registro']}` : ''}
+            {revision.horasTranscurridas !== null ? `, hace ${fmt(revision.horasTranscurridas)} h` : ''}):
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {revision.deltas.map(d => (
+            <div key={d.etiqueta} className={`rounded-lg p-3 border ${d.problema
+              ? 'bg-red-500/10 border-red-400/40'
+              : 'bg-gray-800/30 border-gray-700/50'}`}>
+              <div className="flex justify-between items-baseline gap-4">
+                <span className="text-gray-300 capitalize">{d.etiqueta}</span>
+                <span className={`font-semibold ${d.problema ? 'text-red-300' : 'text-white'}`}>
+                  {fmt(d.valor, d.etiqueta === 'arranques' ? 0 : 2)} {d.unidad}
+                </span>
+              </div>
+              {d.problema === 'negativo' && (
+                <p className="text-xs text-red-300 mt-1">
+                  El contador no puede retroceder: la lectura anterior fue {fmt(valorAnterior[d.etiqueta], 2)}.
+                </p>
+              )}
+              {d.problema === 'excesivo' && (
+                <p className="text-xs text-red-300 mt-1">
+                  Supera el máximo posible ({fmt(d.maximo)} {d.unidad}) para el tiempo transcurrido.
+                  La lectura anterior fue {fmt(valorAnterior[d.etiqueta], 2)}.
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {bloqueado && (
+          <p className="text-xs text-gray-400">
+            Si el contador se cambió o la lectura anterior quedó mal digitada, avisa a la jefatura de planta.
+          </p>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onCorregir}
+            className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-all duration-300"
+          >
+            Corregir
+          </button>
+          {!bloqueado && (
+            <button
+              type="button"
+              onClick={onGuardar}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white rounded-lg font-medium transition-all duration-300 shadow-lg"
+            >
+              Confirmar y guardar
+            </button>
+          )}
+          {bloqueado && puedeForzar && (
+            <button
+              type="button"
+              onClick={onGuardar}
+              className="flex-1 px-6 py-3 border border-red-400/60 text-red-200 hover:bg-red-500/20 rounded-lg font-medium transition-all duration-300"
+            >
+              Guardar de todas formas
+            </button>
+          )}
         </div>
       </div>
     );

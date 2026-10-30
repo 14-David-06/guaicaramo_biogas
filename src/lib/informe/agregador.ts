@@ -22,21 +22,17 @@ import {
 import { aFechaBogota, aHoraBogota, diasDelRango, formatearFechaLarga, rangoDiaBogota } from './fechas';
 import {
   UMBRALES_CALIDAD_GAS, UMBRALES_BIOFILTRO, UMBRAL_POTENCIA, MAX_HORAS_SIN_REGISTRO,
-  MIN_REGISTROS_DIARIOS, REMOCION_H2S_MINIMA, MAX_ENERGIA_POR_HORA, MAX_M3_POR_HORA, MAX_HORAS_POR_REGISTRO,
-  MAX_ARRANQUES_POR_REGISTRO, fueraDeRango, type Umbral
+  MIN_REGISTROS_DIARIOS, REMOCION_H2S_MINIMA, fueraDeRango, type Umbral
 } from './umbrales';
+import { UNIDAD_ENERGIA, evaluarDeltas, lecturasDeMonitoreo } from './contadores';
 import type {
   Excepcion, InformeDiario, MedicionRemocionH2S, ResumenMotor, ResumenTurno, ResumenVariable, Severidad
 } from './tipos';
 
 const MS_POR_HORA = 60 * 60 * 1000;
 
-// Los campos "Kw de Inicio"/"Kw de Fin" de Monitoreo Motores están rotulados en
-// kW, pero son un contador de energía acumulada cuyo delta diario está entre 8 y
-// 15 — coherente con MWh (potencia promedio × horas de operación), no con kW.
-// Se rotula MWh y se deja constancia visible para que la Ing. Jimena lo confirme
-// antes de automatizar el envío.
-const UNIDAD_ENERGIA = 'MWh';
+// La energía se rotula MWh (ver contadores.ts) y se deja constancia visible para
+// que la Ing. Jimena lo confirme antes de automatizar el envío.
 const NOTA_UNIDAD_ENERGIA =
   'Energía tomada del contador acumulado de los motores (campos "Kw de Inicio"/"Kw de Fin" ' +
   'en Airtable). La magnitud corresponde a MWh; el rótulo del campo en la base dice kW. ' +
@@ -68,14 +64,6 @@ function redondear(valor: number | null, decimales = 2): number | null {
   if (valor === null) return null;
   const factor = 10 ** decimales;
   return Math.round(valor * factor) / factor;
-}
-
-/** Delta de un contador acumulado. Devuelve null si falta un extremo. */
-function delta(inicio: unknown, fin: unknown): number | null {
-  const a = numero(inicio);
-  const b = numero(fin);
-  if (a === null || b === null) return null;
-  return b - a;
 }
 
 /** % de H2S removido entre dos puntos del tren de filtrado. */
@@ -212,33 +200,23 @@ export function construirInforme(
     let incompleto = false;
 
     for (const m of monitoreosMotor) {
-      const dKw = delta(m.fields['Kw de Inicio'], m.fields['Kw de Fin']);
-      const dM3 = delta(m.fields['M3 de Inicio'], m.fields['M3 de Fin']);
-      const dHoras = delta(m.fields['Horometro Inicial'], m.fields['Horometro Final']);
-      const dArranques = delta(m.fields['Arranques Inicio'], m.fields['Arranques Final']);
+      // Un delta negativo es imposible en un contador acumulado, y uno por encima del
+      // límite físico del motor también: ambos indican error de digitación o cambio de
+      // equipo. Se reportan y no se suman para no falsear el total.
+      const { inicio, fin } = lecturasDeMonitoreo(m.fields);
+      const lecturas = evaluarDeltas(inicio, fin);
+      const [dKw, dM3, dHoras] = lecturas.map((l) => l.valor);
 
       if (dKw === null || dM3 === null || dHoras === null) {
         incompleto = true;
       }
 
-      // Un delta negativo es imposible en un contador acumulado, y uno por encima del
-      // límite físico del motor también: ambos indican error de digitación o cambio de
-      // equipo. Se reportan y no se suman para no falsear el total.
-      const horasValidas = dHoras !== null && dHoras >= 0 && dHoras <= MAX_HORAS_POR_REGISTRO ? dHoras : null;
-      const horasTope = horasValidas ?? MAX_HORAS_POR_REGISTRO;
-      const lecturas = [
-        { etiqueta: 'energía', valor: dKw, maximo: horasTope * MAX_ENERGIA_POR_HORA, unidad: UNIDAD_ENERGIA },
-        { etiqueta: 'm³', valor: dM3, maximo: horasTope * MAX_M3_POR_HORA, unidad: 'm³' },
-        { etiqueta: 'horómetro', valor: dHoras, maximo: MAX_HORAS_POR_REGISTRO, unidad: 'h' },
-        { etiqueta: 'arranques', valor: dArranques, maximo: MAX_ARRANQUES_POR_REGISTRO, unidad: 'arranques' }
-      ];
       const validos = new Map<string, number | null>();
 
-      for (const { etiqueta, valor, maximo, unidad } of lecturas) {
-        const negativo = valor !== null && valor < 0;
-        const excesivo = valor !== null && valor > maximo;
-        validos.set(etiqueta, negativo || excesivo ? null : valor);
-        if (!negativo && !excesivo) continue;
+      for (const { etiqueta, valor, maximo, unidad, problema } of lecturas) {
+        validos.set(etiqueta, problema ? null : valor);
+        if (!problema) continue;
+        const negativo = problema === 'negativo';
 
         excepciones.push({
           severidad: 'advertencia',
