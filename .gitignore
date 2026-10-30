@@ -42,3 +42,6 @@ next-env.d.ts
 
 # claude code (estado local de sesión)
 .claude/
+
+# documentación interna (no se versiona: el repositorio es público)
+docs/
