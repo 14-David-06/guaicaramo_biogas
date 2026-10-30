@@ -113,6 +113,16 @@ export default function Navbar({ onLoginClick, loggedInUser, onLogout }: NavbarP
           name: "Histórico de Registros",
           href: "/sensores",
           description: "Histórico de datos registrados"
+        },
+        {
+          name: "Informe Diario",
+          href: "/informe-diario",
+          description: "Consolidado del día en PDF y Excel"
+        },
+        {
+          name: "Remoción H2S",
+          href: "/remocion-h2s",
+          description: "H2S antes y después del filtro"
         }
       ]
     },

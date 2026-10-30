@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
     // Optimizar paquetes para carga más rápida
     optimizePackageImports: ['chart.js', 'react-chartjs-2', 'date-fns', 'jspdf'],
   },
+  // El PDF del informe lee los logos con fs en el servidor: incluirlos en el bundle de las funciones
+  outputFileTracingIncludes: {
+    '/api/**/*': ['./public/logo-guaicaramo.png', './public/Logo-Sirius.png'],
+  },
   // Comprimir respuestas
   compress: true,
   // Generar sourcemaps solo en desarrollo
