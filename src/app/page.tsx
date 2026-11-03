@@ -1,12 +1,153 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Login from '@/components/Login';
 import SessionAlert from '@/components/SessionAlert';
+import Indicadores from '@/components/ui/Indicadores';
+import { claseBoton } from '@/components/ui/estilos';
 import { useAuth, User } from '@/hooks/useAuth';
+import { useTurnoStatus } from '@/hooks/useTurnoStatus';
+import { SECCIONES_MENU } from '@/lib/navegacion';
+import type { RespuestaPlanilla } from '@/lib/planilla/tipos';
+import { indicadoresPlanilla } from './registro-jenbacher/indicadores';
+
+const ZONA = 'America/Bogota';
+
+function saludo(): string {
+  const hora = Number(new Intl.DateTimeFormat('es-CO', { hour: 'numeric', hourCycle: 'h23', timeZone: ZONA }).format(new Date()));
+  return hora < 12 ? 'Buenos días' : hora < 18 ? 'Buenas tardes' : 'Buenas noches';
+}
+
+function fechaDeHoy(): string {
+  const texto = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', timeZone: ZONA });
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function Cargando() {
+  return (
+    <div className="min-h-screen bg-fondo flex items-center justify-center" role="status">
+      <div className="flex items-center gap-3 text-tinta-suave">
+        <span className="w-6 h-6 rounded-full border-[3px] border-linea border-t-bosque animate-spin" aria-hidden="true" />
+        Verificando sesión…
+      </div>
+    </div>
+  );
+}
+
+/** Inicio del operador: quién está en turno, cómo va la planilla y a dónde ir. */
+function Inicio({ usuario, onLogout }: { usuario: User; onLogout: () => void }) {
+  const turno = useTurnoStatus();
+  const [planilla, setPlanilla] = useState<RespuestaPlanilla | null>(null);
+  const [errorPlanilla, setErrorPlanilla] = useState(false);
+
+  useEffect(() => {
+    let vigente = true;
+    fetch('/api/planilla-horaria')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((datos: RespuestaPlanilla) => vigente && setPlanilla(datos))
+      .catch(() => vigente && setErrorPlanilla(true));
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  const inicioTurno = turno.turnoActivo
+    ? new Date(turno.turnoActivo.fechaInicio).toLocaleString('es-CO', { timeZone: ZONA, hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+    : null;
+
+  return (
+    <div className="min-h-screen flex flex-col bg-fondo text-tinta">
+      <SessionAlert />
+      <Navbar onLoginClick={() => {}} loggedInUser={usuario} onLogout={onLogout} />
+
+      <main className="flex-grow pt-16">
+        {/* La planta, de fondo del saludo: es lo único fotográfico de las páginas internas. */}
+        <section className="relative h-60 sm:h-72 overflow-hidden">
+          <Image src="/DSC_3884-Mejorado-NR_ghtz72.jpg" alt="" fill priority sizes="100vw" className="object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#141b12]/85 via-[#141b12]/55 to-[#141b12]/10" />
+          <div className="relative h-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-6 sm:pb-8 text-white">
+            <p className="font-semibold text-white/85">{fechaDeHoy()}</p>
+            <h1 className="font-condensada font-bold text-4xl sm:text-5xl leading-tight">
+              {saludo()}, {usuario.nombre.split(' ')[0]}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              {turno.loading ? (
+                <span className="text-white/80">Consultando el turno…</span>
+              ) : turno.hayTurnoActivo && turno.turnoActivo ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-white/95 text-tinta px-3 py-1 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-hoja" aria-hidden="true" />
+                  {turno.esElOperadorDelTurno ? 'Usted está en turno' : `En turno: ${turno.turnoActivo.nombreOperador}`}
+                  <span className="font-normal text-tinta-suave">desde {inicioTurno}</span>
+                </span>
+              ) : (
+                <>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white/95 text-tinta px-3 py-1 font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-ambar-borde" aria-hidden="true" />
+                    No hay turno abierto
+                  </span>
+                  <Link href="/turnos" className={claseBoton('primario', 'sm')}>Abrir turno</Link>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+          <section aria-labelledby="titulo-planilla">
+            <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+              <div>
+                <h2 id="titulo-planilla" className="font-condensada font-bold text-2xl sm:text-3xl">Planilla Jenbacher de hoy</h2>
+                <p className="text-tinta-suave">Gas, biofiltro y potencia hora a hora, de 06:00 a 05:00.</p>
+              </div>
+              <Link href="/registro-jenbacher" className={claseBoton('secundario')}>Abrir planilla</Link>
+            </div>
+            {planilla ? (
+              <Indicadores items={indicadoresPlanilla(planilla)} />
+            ) : errorPlanilla ? (
+              <p className="bg-superficie border border-linea rounded-xl px-5 py-6 text-tinta-suave">
+                No se pudo consultar la planilla. Ábrala para ver el detalle.
+              </p>
+            ) : (
+              <div className="h-[118px] bg-superficie border border-linea rounded-xl animate-pulse" aria-label="Cargando la planilla" />
+            )}
+          </section>
+
+          <section aria-labelledby="titulo-accesos">
+            <h2 id="titulo-accesos" className="font-condensada font-bold text-2xl sm:text-3xl mb-3">Ir a</h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              {SECCIONES_MENU.map((seccion) => (
+                <nav key={seccion.id} aria-label={seccion.nombre} className="bg-superficie border border-linea rounded-xl overflow-hidden">
+                  <h3 className="px-5 pt-4 pb-2 font-condensada font-bold text-xl">{seccion.nombre}</h3>
+                  <ul>
+                    {seccion.paginas.map((pagina) => (
+                      <li key={pagina.href} className="border-t border-linea">
+                        <Link href={pagina.href} className="group flex items-center gap-3 px-5 py-3 hover:bg-superficie-2">
+                          <span className="flex-1">
+                            <span className="block font-semibold text-tinta group-hover:text-bosque">{pagina.nombre}</span>
+                            <span className="block text-sm text-tinta-suave">{pagina.descripcion}</span>
+                          </span>
+                          <svg className="w-5 h-5 text-tinta-tenue group-hover:text-bosque shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              ))}
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
 
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
@@ -17,147 +158,44 @@ export default function Home() {
     setShowLogin(false);
   };
 
-  const handleLogout = () => {
-    logout();
-  };
-
   // Mostrar loading mientras se verifica la sesión
-  if (isLoading) {
-    return (
-      <div className="relative min-h-screen flex items-center justify-center">
-        <div className="fixed inset-0 w-full h-full z-0">
-          <Image
-            src="/DSC_3884-Mejorado-NR_ghtz72.jpg"
-            alt="Background Biogas"
-            fill
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-black/50"></div>
-        </div>
-        <div className="relative z-10 backdrop-blur-lg bg-white/10 rounded-2xl p-6 sm:p-8 border border-white/20 shadow-2xl mx-4">
-          <div className="flex items-center justify-center space-x-3">
-            <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-white text-base sm:text-lg font-medium">Verificando sesión...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <Cargando />;
 
   if (showLogin) {
     return <Login onBack={() => setShowLogin(false)} onLoginSuccess={handleLoginSuccess} />;
   }
 
-  if (loggedInUser) {
-    return (
-      <div className="relative min-h-screen flex flex-col">
-        {/* Background Image */}
-        <div className="fixed inset-0 w-full h-full z-0">
-          <Image
-            src="/DSC_3884-Mejorado-NR_ghtz72.jpg"
-            alt="Background Biogas"
-            fill
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 bg-black/40"></div>
-        </div>
-
-        {/* Alerta de sesión */}
-        <SessionAlert />
-
-        {/* Navigation */}
-        <Navbar 
-          onLoginClick={() => setShowLogin(true)} 
-          loggedInUser={loggedInUser}
-          onLogout={handleLogout}
-        />
-
-        {/* Main Dashboard Content */}
-        <main className="relative z-10 pt-20 pb-16 px-4 sm:px-6 lg:px-8 flex-grow">
-          <div className="max-w-7xl mx-auto">
-            {/* Dashboard Content Placeholder */}
-            <div className="text-center py-20">
-              <div className="backdrop-blur-2xl bg-gradient-to-br from-white/10 to-white/5 rounded-3xl p-12 border border-white/20 shadow-custom">
-                <h2 className="text-3xl font-bold text-white mb-6">
-                  Sistema de Gestión de Biogás
-                </h2>
-                <p className="text-gray-300 text-lg">
-                  Utiliza el menú de navegación para acceder a las diferentes funciones del sistema.
-                </p>
-              </div>
-            </div>
-          </div>
-        </main>
-
-        <Footer />
-      </div>
-    );
-  }
+  if (loggedInUser) return <Inicio usuario={loggedInUser} onLogout={logout} />;
 
   return (
     <div className="relative min-h-screen flex flex-col">
-      {/* Video Background */}
       <div className="fixed inset-0 w-full h-full z-0">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-        >
+        <video autoPlay loop muted playsInline className="w-full h-full object-cover">
           <source src="/video_landing_page_biogas.mp4" type="video/mp4" />
-          Tu navegador no soporta el elemento de video.
         </video>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#141b12]/90 via-[#141b12]/45 to-[#141b12]/20" />
       </div>
 
-      {/* Navigation */}
       <Navbar onLoginClick={() => setShowLogin(true)} />
 
-      {/* Hero Section */}
-      <main id="inicio" className="relative z-10 flex flex-col items-center justify-center flex-grow text-center px-4 sm:px-6 lg:px-8 pt-24 pb-8">
-        <div className="max-w-7xl mx-auto w-full">
-          {/* Hero Content with enhanced glassmorphism */}
-          <div className="backdrop-blur-2xl bg-gradient-to-br from-green-900/50 via-emerald-800/40 to-slate-900/50 rounded-[2rem] p-10 sm:p-16 border border-green-400/30 shadow-[0_8px_32px_rgba(16,185,129,0.2)] mb-16 animate-fade-in-up">
-
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-extrabold text-white mb-6 sm:mb-8 max-w-5xl mx-auto leading-tight tracking-tight">
-              <span className="block bg-gradient-to-r from-green-300 via-emerald-300 to-blue-300 bg-clip-text text-transparent animate-slide-in-left font-poppins">
-                Plataforma Biogás
-              </span>
-              <span className="block text-gray-100 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light mt-4 animate-slide-in-right">
-                Gestión Inteligente de{' '}
-                <span className="text-green-300 font-semibold">Energía Sostenible</span>
-              </span>
-            </h1>
-
-            <p className="text-lg sm:text-xl md:text-2xl text-gray-200 mb-10 sm:mb-14 max-w-4xl mx-auto leading-relaxed font-light">
-              Monitorea, controla y optimiza tu producción de energía renovable en tiempo real 
-              con nuestra <span className="text-green-300 font-semibold">plataforma colaborativa de última generación</span>.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center">
-              <button
-                onClick={() => setShowLogin(true)}
-                className="group relative bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 hover:from-green-400 hover:via-emerald-400 hover:to-green-500 text-white px-10 sm:px-12 py-5 sm:py-6 rounded-2xl text-lg sm:text-xl font-bold transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 shadow-[0_8px_30px_rgba(16,185,129,0.4)] hover:shadow-[0_12px_40px_rgba(16,185,129,0.6)] border border-green-400/50 overflow-hidden"
-              >
-                <span className="relative z-10 flex items-center justify-center">
-                  Acceder a la Plataforma
-                  <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-teal-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              </button>
-            </div>
-          </div>
-
-
+      <main id="inicio" className="relative z-10 flex-grow flex items-end pt-16">
+        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-16 sm:pb-24">
+          <p className="font-semibold text-white/85 text-lg">Guaicaramo S.A.S</p>
+          <h1 className="mt-1 font-condensada font-bold text-white text-5xl sm:text-7xl leading-[0.95] max-w-3xl">
+            Planta de biogás
+          </h1>
+          <p className="mt-4 text-white/90 text-lg sm:text-xl max-w-xl">
+            Turnos, motores Jenbacher, biodigestores e informes diarios de la planta, en un solo lugar.
+          </p>
+          <button type="button" onClick={() => setShowLogin(true)} className={`${claseBoton('primario', 'lg')} mt-8`}>
+            Ingresar
+          </button>
         </div>
       </main>
 
-
-      <Footer />
+      <div className="relative z-10">
+        <Footer />
+      </div>
     </div>
   );
 }

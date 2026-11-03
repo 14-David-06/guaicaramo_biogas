@@ -28,8 +28,13 @@ export const TABLAS = {
   bitacora: process.env.NEXT_PUBLIC_BITACORA_BIOGAS_TABLE_ID,
   medicionBiodigestores: process.env.NEXT_PUBLIC_MEDICION_BIODIGESTORES_TABLE_ID,
   motores: process.env.NEXT_PUBLIC_MOTORES_TABLE_ID,
+  biodigestores: process.env.NEXT_PUBLIC_BIODIGESTORES_TABLE_ID,
   // "Entradas y Salidas de biofiltros": H2S antes y después de cada etapa de filtrado.
-  biofiltros: process.env.BIOFILTROS_TABLE_ID
+  biofiltros: process.env.BIOFILTROS_TABLE_ID,
+  // "Consumo KW Barraje 2": consumo del día por área de la planta de beneficio.
+  consumoBarraje: process.env.CONSUMO_BARRAJE_TABLE_ID,
+  // "Datos Operacion Jenbacher": horómetro, m³, kW y arranques de cada motor, una vez por día.
+  operacionJenbacher: process.env.OPERACION_JENBACHER_TABLE_ID
 };
 
 export interface RegistroAirtable {
@@ -143,6 +148,78 @@ export async function turnosDelRango(desde: string, hasta: string): Promise<Regi
     'sort[0][field]': 'Fecha Inicio',
     'sort[0][direction]': 'asc'
   });
+}
+
+/**
+ * Registros que cumplen una fórmula de Airtable. Quien llama es responsable de
+ * que los valores interpolados en la fórmula estén validados.
+ */
+export async function registrosDonde(
+  tablaId: string | undefined,
+  nombreTabla: string,
+  formula: string,
+  opciones: { ordenarPor?: string; descendente?: boolean; maximo?: number } = {}
+): Promise<RegistroAirtable[]> {
+  const tabla = verificarConfiguracion(tablaId, nombreTabla);
+  const params: Record<string, string> = { filterByFormula: formula };
+  if (opciones.ordenarPor) {
+    params['sort[0][field]'] = opciones.ordenarPor;
+    params['sort[0][direction]'] = opciones.descendente ? 'desc' : 'asc';
+  }
+  if (opciones.maximo) params.maxRecords = String(opciones.maximo);
+  return consultarTodo(tabla, params);
+}
+
+/**
+ * Crea hasta 10 registros en un solo request. Airtable valida el lote completo
+ * antes de escribir: si un registro falla, no se crea ninguno.
+ */
+export async function crearRegistros(
+  tablaId: string | undefined,
+  nombreTabla: string,
+  campos: Record<string, unknown>[]
+): Promise<RegistroAirtable[]> {
+  const tabla = verificarConfiguracion(tablaId, nombreTabla);
+  if (campos.length === 0 || campos.length > 10) {
+    throw new Error(`crearRegistros admite de 1 a 10 registros por llamada; llegaron ${campos.length}.`);
+  }
+
+  const respuesta = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${tabla}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: campos.map((fields) => ({ fields })), typecast: true }),
+    cache: 'no-store'
+  });
+
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.text();
+    throw new ErrorAirtable(`Airtable respondió ${respuesta.status} al crear registros en ${nombreTabla}: ${cuerpo.slice(0, 300)}`, respuesta.status);
+  }
+
+  return ((await respuesta.json()) as { records: RegistroAirtable[] }).records;
+}
+
+/** Actualiza campos de un registro existente; los campos que no se envían no cambian. */
+export async function actualizarRegistro(
+  tablaId: string | undefined,
+  nombreTabla: string,
+  id: string,
+  campos: Record<string, unknown>
+): Promise<RegistroAirtable> {
+  const tabla = verificarConfiguracion(tablaId, nombreTabla);
+  const respuesta = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${tabla}/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: campos, typecast: true }),
+    cache: 'no-store'
+  });
+
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.text();
+    throw new ErrorAirtable(`Airtable respondió ${respuesta.status} al actualizar ${nombreTabla}: ${cuerpo.slice(0, 300)}`, respuesta.status);
+  }
+
+  return (await respuesta.json()) as RegistroAirtable;
 }
 
 /** Catálogo completo de motores (4 registros). */

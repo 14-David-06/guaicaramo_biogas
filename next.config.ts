@@ -21,6 +21,12 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/api/**/*': ['./public/logo-guaicaramo.png', './public/Logo-Sirius.png'],
   },
+  // La ruta se llamaba /registro-jerbacher (mal escrita): mantener vivos los enlaces viejos
+  async redirects() {
+    return [
+      { source: '/registro-jerbacher', destination: '/registro-jenbacher', permanent: true },
+    ];
+  },
   // Comprimir respuestas
   compress: true,
   // Generar sourcemaps solo en desarrollo

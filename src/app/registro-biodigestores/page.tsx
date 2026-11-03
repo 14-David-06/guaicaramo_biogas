@@ -1,15 +1,23 @@
 'use client';
 
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import BackgroundLayout from '@/components/BackgroundLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { airtableService, MedicionBiodigestores, Biodigestor } from '@/utils/airtable';
-import { useVoiceRecording } from '@/hooks/useVoiceRecording';
+import VoiceRecorder from '@/components/VoiceRecorder';
+import Pagina from '@/components/ui/Pagina';
+import EncabezadoPagina from '@/components/ui/EncabezadoPagina';
+import Indicadores, { type Indicador } from '@/components/ui/Indicadores';
+import Panel from '@/components/ui/Panel';
+import Aviso, { type TonoAviso } from '@/components/ui/Aviso';
+import { claseBoton, claseCampo, claseEtiqueta } from '@/components/ui/estilos';
+import {
+  UMBRALES_BIODIGESTOR, biodigestoresDistintos, cifra, claseCeldaGas, esDeHoy, fechaDeMedicion, horaCorta,
+  medicionMasReciente, numero, tonoGas
+} from '../monitoreo-biodigestores/resumen';
 
 export default function RegistroBiodigestoresPage() {
-  const { user: loggedInUser, logout } = useAuth();
+  const { user: loggedInUser } = useAuth();
 
   // Estados del formulario
   const [ch4, setCh4] = useState<string>('');
@@ -20,6 +28,8 @@ export default function RegistroBiodigestoresPage() {
   const [no, setNo] = useState<string>('');
   const [biodigestorSeleccionado, setBiodigestorSeleccionado] = useState<string>('');
   const [enviandoFormulario, setEnviandoFormulario] = useState(false);
+  // Resultado del último envío (antes era un alert()).
+  const [aviso, setAviso] = useState<{ tono: TonoAviso; texto: string } | null>(null);
 
   // Estados para datos
   const [biodigestores, setBiodigestores] = useState<Biodigestor[]>([]);
@@ -27,14 +37,6 @@ export default function RegistroBiodigestoresPage() {
   const [cargandoBiodigestores, setCargandoBiodigestores] = useState(true);
   const [cargandoMediciones, setCargandoMediciones] = useState(true);
   const [mostrarMediciones, setMostrarMediciones] = useState(false);
-
-  // Hook para grabación de voz
-  const {
-    isRecording,
-    isTranscribing,
-    startRecording,
-    stopRecording
-  } = useVoiceRecording();
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -74,41 +76,28 @@ export default function RegistroBiodigestoresPage() {
   const obtenerNombreBiodigestor = (medicion: MedicionBiodigestores): string => {
     // Intentar obtener el ID del biodigestor desde el campo de relación
     const biodigestorId = medicion.fields['Biodigestor Monitoreado']?.[0];
-    
+
     if (!biodigestorId) {
       return 'No especificado';
     }
-    
+
     // Buscar el biodigestor en el listado cargado
     const biodigestor = biodigestores.find(b => b.id === biodigestorId);
-    
+
     return biodigestor?.fields['Nombre Biodigestores'] || 'Biodigestor desconocido';
   };
 
   if (!loggedInUser) {
     return (
-      <BackgroundLayout>
-        <div className="min-h-screen flex items-center justify-center px-4">
-          <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-2xl p-6 sm:p-8 border border-white/20 max-w-md w-full">
-            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold mb-3">Acceso Requerido</h1>
-            <p className="text-gray-300 mb-6 text-sm sm:text-base">Debes iniciar sesión para acceder al registro de biodigestores.</p>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
-              <span>Iniciar Sesión</span>
-            </button>
-          </div>
-        </div>
-      </BackgroundLayout>
+      <Pagina>
+        <Panel className="max-w-md mx-auto text-center">
+          <h1 className="font-condensada font-bold text-2xl text-tinta">Inicie sesión para continuar</h1>
+          <p className="mt-2 text-tinta-suave">El registro de biodigestores solo está disponible con una sesión abierta.</p>
+          <Link href="/" className={`${claseBoton('primario', 'lg')} w-full mt-5`}>
+            Ir a iniciar sesión
+          </Link>
+        </Panel>
+      </Pagina>
     );
   }
 
@@ -119,11 +108,11 @@ export default function RegistroBiodigestoresPage() {
 
   // Validar formulario
   const isFormValid = () => {
-    return ch4.trim() !== '' && 
-           co2.trim() !== '' && 
-           o2.trim() !== '' && 
-           h2s.trim() !== '' && 
-           co.trim() !== '' && 
+    return ch4.trim() !== '' &&
+           co2.trim() !== '' &&
+           o2.trim() !== '' &&
+           h2s.trim() !== '' &&
+           co.trim() !== '' &&
            no.trim() !== '' &&
            biodigestorSeleccionado.trim() !== '';
   };
@@ -131,13 +120,14 @@ export default function RegistroBiodigestoresPage() {
   // Enviar formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isFormValid()) {
-      alert('Todos los campos de medición son obligatorios');
+      setAviso({ tono: 'alerta', texto: 'Complete los seis valores y elija el biodigestor antes de guardar.' });
       return;
     }
 
     setEnviandoFormulario(true);
+    setAviso(null);
 
     try {
       await airtableService.crearMedicionBiodigestores(
@@ -151,8 +141,9 @@ export default function RegistroBiodigestoresPage() {
         biodigestorSeleccionado ? [biodigestorSeleccionado] : []
       );
 
-      alert('✅ Medición de biodigestores registrada exitosamente');
-      
+      const nombre = biodigestores.find(b => b.id === biodigestorSeleccionado)?.fields['Nombre Biodigestores'];
+      setAviso({ tono: 'exito', texto: `Medición guardada${nombre ? ` para ${nombre}` : ''}.` });
+
       // Limpiar formulario
       setCh4('');
       setCo2('');
@@ -161,13 +152,13 @@ export default function RegistroBiodigestoresPage() {
       setCo('');
       setNo('');
       setBiodigestorSeleccionado('');
-      
+
       // Recargar mediciones
       await cargarMediciones();
 
     } catch (error) {
       console.error('Error al registrar medición:', error);
-      alert('❌ Error al registrar la medición. Intenta nuevamente.');
+      setAviso({ tono: 'error', texto: 'No se pudo guardar la medición. Revise la conexión e intente de nuevo; los valores siguen en el formulario.' });
     } finally {
       setEnviandoFormulario(false);
     }
@@ -183,24 +174,6 @@ export default function RegistroBiodigestoresPage() {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  // Función para manejar la grabación de voz
-  const handleVoiceRecording = async () => {
-    if (isRecording) {
-      try {
-        const transcripcion = await stopRecording();
-        procesarTranscripcion(transcripcion);
-      } catch (error) {
-        console.error('Error al detener grabación:', error);
-      }
-    } else {
-      try {
-        await startRecording();
-      } catch (error) {
-        console.error('Error al iniciar grabación:', error);
-      }
-    }
   };
 
   // Función para procesar la transcripción y extraer valores
@@ -308,313 +281,245 @@ export default function RegistroBiodigestoresPage() {
     }
   };
 
+  // Campos de medición: valor, setter, etiqueta, unidad y paso del original.
+  const campos = [
+    { id: 'ch4', etiqueta: 'CH4 máximo', unidad: '%', valor: ch4, cambiar: setCh4, step: '0.01', placeholder: '0,00' },
+    { id: 'co2', etiqueta: 'CO2', unidad: '%', valor: co2, cambiar: setCo2, step: '0.01', placeholder: '0,00' },
+    { id: 'o2', etiqueta: 'O2', unidad: '%', valor: o2, cambiar: setO2, step: '0.01', placeholder: '0,00' },
+    { id: 'h2s', etiqueta: 'H2S', unidad: 'ppm', valor: h2s, cambiar: setH2s, step: '0.1', placeholder: '0,0' },
+    { id: 'co', etiqueta: 'CO', unidad: 'ppm', valor: co, cambiar: setCo, step: '0.1', placeholder: '0,0' },
+    { id: 'no', etiqueta: 'NO', unidad: 'ppm', valor: no, cambiar: setNo, step: '0.1', placeholder: '0,0' }
+  ];
+
+  // Resumen de arriba: sale de las mediciones que la página ya cargó.
+  const resumen: Indicador[] = (() => {
+    const ultima = medicionMasReciente(mediciones);
+    const deHoy = mediciones.filter(esDeHoy);
+    const ch4Ultima = ultima ? numero(ultima.fields['CH4 (Max) %']) : null;
+    const h2sUltima = ultima ? numero(ultima.fields['H2S']) : null;
+    return [
+      {
+        etiqueta: 'Última medición',
+        valor: horaCorta(ultima ? fechaDeMedicion(ultima) : null),
+        detalle: ultima
+          ? `${obtenerNombreBiodigestor(ultima)}, ${ultima.fields['Realiza Registro'] || 'sin operador'}`
+          : 'Aún no hay mediciones'
+      },
+      {
+        etiqueta: 'Mediciones de hoy',
+        valor: deHoy.length,
+        detalle: `${biodigestoresDistintos(deHoy)} de ${biodigestores.length} biodigestores medidos`
+      },
+      {
+        etiqueta: 'CH4 en la última',
+        valor: cifra(ch4Ultima, 1),
+        unidad: ch4Ultima === null ? undefined : '%',
+        detalle: `Rango ${UMBRALES_BIODIGESTOR.ch4.referencia}`,
+        tono: tonoGas(ch4Ultima, 'ch4')
+      },
+      {
+        etiqueta: 'H2S en la última',
+        valor: cifra(h2sUltima, 0),
+        unidad: h2sUltima === null ? undefined : 'ppm',
+        detalle: `Rango ${UMBRALES_BIODIGESTOR.h2s.referencia}`,
+        tono: tonoGas(h2sUltima, 'h2s')
+      }
+    ];
+  })();
+
+  const chip = (activo: boolean) =>
+    `min-w-12 min-h-11 px-4 py-2.5 rounded-lg border-2 font-semibold text-lg transition-colors ${
+      activo ? 'bg-bosque border-bosque text-white' : 'bg-superficie border-linea-fuerte text-tinta hover:border-bosque'
+    }`;
+
+  const formularioCompleto = isFormValid();
+
   return (
-    <BackgroundLayout>
-      <div className="min-h-screen flex flex-col">
-        <Navbar 
-          onLoginClick={() => {}} 
-          loggedInUser={loggedInUser}
-          onLogout={logout}
-        />
-        
-        <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
-          <div className="max-w-6xl mx-auto py-12">
-            <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold text-white mb-4">Registro de Medición de Biodigestores</h1>
-              <p className="text-gray-300 text-lg">Registro de mediciones de gases en biodigestores</p>
-            </div>
+    <Pagina>
+      <EncabezadoPagina
+        titulo="Mediciones por biodigestor"
+        descripcion="Registre la composición del gas de cada biodigestor: CH4, CO2, O2, H2S, CO y NO."
+      >
+        <span>
+          Registra <span className="font-semibold text-tinta">{loggedInUser.nombre}</span>
+        </span>
+      </EncabezadoPagina>
 
-            {/* Formulario de Medición */}
-            <form onSubmit={handleSubmit} className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-600/30 mb-8">
-            
-            {/* Botón de Micrófono */}
-            <div className="mb-6 flex justify-center">
-              <button
-                type="button"
-                onClick={handleVoiceRecording}
-                disabled={enviandoFormulario}
-                className={`flex items-center justify-center w-16 h-16 rounded-full transition-all duration-300 transform hover:scale-105 ${
-                  isRecording 
-                    ? 'bg-red-600 hover:bg-red-500 animate-pulse' 
-                    : isTranscribing
-                      ? 'bg-yellow-600 cursor-not-allowed'
-                      : 'bg-purple-600 hover:bg-purple-500'
-                }`}
-              >
-                {isRecording ? (
-                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd"/>
-                  </svg>
-                ) : isTranscribing ? (
-                  <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                  </svg>
+      {!cargandoMediciones && <Indicadores items={resumen} />}
+
+      <form onSubmit={handleSubmit}>
+        <Panel titulo="Nueva medición">
+          <div className="space-y-6">
+            {/* Selección de biodigestor */}
+            <fieldset>
+              <legend className="font-condensada font-bold text-lg text-tinta">
+                Biodigestor medido <span className="text-rojo">*</span>
+              </legend>
+              <div className="mt-2">
+                {cargandoBiodigestores ? (
+                  <p className="flex items-center gap-3 text-tinta-suave" role="status">
+                    <span className="w-5 h-5 rounded-full border-[3px] border-linea border-t-bosque animate-spin" aria-hidden="true" />
+                    Cargando biodigestores…
+                  </p>
+                ) : biodigestores.length === 0 ? (
+                  <Aviso tono="alerta">No se encontraron biodigestores. Recargue la página; si sigue igual, avise al administrador.</Aviso>
                 ) : (
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
-                  </svg>
+                  <div className="flex flex-wrap gap-2">
+                    {biodigestores.map((biodigestor) => {
+                      const activo = biodigestorSeleccionado === biodigestor.id;
+                      return (
+                        <button
+                          key={biodigestor.id}
+                          type="button"
+                          aria-pressed={activo}
+                          onClick={() => handleBiodigestorChange(activo ? '' : biodigestor.id)}
+                          className={chip(activo)}
+                        >
+                          {biodigestor.fields['Nombre Biodigestores'] || biodigestor.fields['ID'] || biodigestor.id}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
+              </div>
+            </fieldset>
+
+            {/* Dictado por voz */}
+            <div className="flex items-center gap-4 bg-superficie-2 border border-linea rounded-lg p-3 sm:p-4">
+              <VoiceRecorder size="md" disabled={enviandoFormulario} onTranscription={procesarTranscripcion} />
+              <div className="min-w-0">
+                <p className="font-semibold text-tinta">Dictar la medición</p>
+                <p className="text-sm text-tinta-suave">
+                  Toque el micrófono y diga el biodigestor y cada gas con su valor. Al terminar, revise los campos antes de guardar.
+                </p>
+              </div>
+            </div>
+
+            {/* Mediciones de gases */}
+            <fieldset>
+              <legend className="font-condensada font-bold text-lg text-tinta">Valores medidos</legend>
+              <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                {campos.map((campo) => (
+                  <div key={campo.id}>
+                    <label htmlFor={`medicion-${campo.id}`} className={claseEtiqueta}>
+                      {campo.etiqueta} ({campo.unidad}) <span className="text-rojo">*</span>
+                    </label>
+                    <input
+                      id={`medicion-${campo.id}`}
+                      type="number"
+                      inputMode="decimal"
+                      step={campo.step}
+                      min="0"
+                      value={campo.valor}
+                      onChange={(e) => campo.cambiar(e.target.value)}
+                      className={`${claseCampo} text-lg font-semibold tabular-nums placeholder:font-normal`}
+                      placeholder={campo.placeholder}
+                      required
+                    />
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+
+            {aviso && <Aviso tono={aviso.tono}>{aviso.texto}</Aviso>}
+
+            {/* Botón de envío */}
+            <div>
+              <button
+                type="submit"
+                disabled={enviandoFormulario || !formularioCompleto}
+                className={`${claseBoton('primario', 'lg')} w-full`}
+              >
+                {enviandoFormulario ? 'Guardando…' : 'Guardar medición'}
               </button>
-            </div>
-            
-            {/* Mediciones de Gases */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              
-              {/* CH4 (Max) % */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  CH4 (Max) % *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={ch4}
-                  onChange={(e) => setCh4(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              {/* CO2 % */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  CO2 % *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={co2}
-                  onChange={(e) => setCo2(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              {/* O2 % */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  O2 % *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={o2}
-                  onChange={(e) => setO2(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              {/* H2S */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  H2S *
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={h2s}
-                  onChange={(e) => setH2s(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="0.0"
-                  required
-                />
-              </div>
-
-              {/* CO */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  CO *
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={co}
-                  onChange={(e) => setCo(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="0.0"
-                  required
-                />
-              </div>
-
-              {/* NO */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  NO *
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={no}
-                  onChange={(e) => setNo(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="0.0"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Selección de Biodigestor */}
-            <div className="mb-8">
-              <label className="block text-lg font-medium text-white mb-4">
-                Biodigestor Monitoreado *
-              </label>
-              {cargandoBiodigestores ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
-                  <span className="ml-3 text-gray-300">Cargando biodigestores...</span>
-                </div>
-              ) : biodigestores.length === 0 ? (
-                <p className="text-gray-400">No hay biodigestores disponibles</p>
-              ) : (
-                <select
-                  value={biodigestorSeleccionado}
-                  onChange={(e) => handleBiodigestorChange(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Seleccionar biodigestor...</option>
-                  {biodigestores.map((biodigestor) => (
-                    <option key={biodigestor.id} value={biodigestor.id}>
-                      {biodigestor.fields['Nombre Biodigestores'] || biodigestor.fields['ID'] || biodigestor.id}
-                    </option>
-                  ))}
-                </select>
+              {!formularioCompleto && !enviandoFormulario && (
+                <p className="mt-2 text-sm text-tinta-suave text-center">
+                  Elija el biodigestor y complete los seis valores para guardar.
+                </p>
               )}
             </div>
-
-            {/* Botón de Envío */}
-            <button
-              type="submit"
-              disabled={enviandoFormulario || !isFormValid()}
-              className={`w-full px-6 py-3 rounded-lg font-medium transition-all duration-300 transform ${
-                enviandoFormulario || !isFormValid()
-                  ? 'bg-gray-600 cursor-not-allowed text-gray-300'
-                  : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white hover:scale-105'
-              }`}
-            >
-              {enviandoFormulario ? '📝 Registrando medición...' : '📊 Registrar Medición'}
-            </button>
-          </form>
-
-          {/* Botón para mostrar mediciones anteriores */}
-          <div className="mb-6">
-            <button
-              onClick={() => setMostrarMediciones(!mostrarMediciones)}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 transform hover:scale-105"
-            >
-              {mostrarMediciones ? '📁 Ocultar Mediciones' : '📂 Ver Mediciones Anteriores'}
-            </button>
           </div>
+        </Panel>
+      </form>
 
-          {/* Lista de Mediciones Anteriores */}
-          {mostrarMediciones && (
-            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-600/30">
-              <h2 className="text-2xl font-bold text-white mb-6">Mediciones Anteriores</h2>
-              
-              {cargandoMediciones ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-                  <span className="ml-3 text-gray-300">Cargando mediciones...</span>
-                </div>
-              ) : mediciones.length === 0 ? (
-                <p className="text-gray-400 text-center py-8">No hay mediciones anteriores</p>
-              ) : (
-                <div className="space-y-6">
-                  {mediciones.map((medicion) => {
-                    const nombreBiodigestor = obtenerNombreBiodigestor(medicion);
-                    
-                    return (
-                      <div key={medicion.id} className="bg-gradient-to-br from-gray-700/40 to-gray-800/40 rounded-xl p-6 border border-gray-600/40 shadow-lg hover:shadow-xl transition-shadow duration-300">
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-5 gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-xl">📅</span>
-                              <p className="text-sm font-medium text-gray-300">
-                                {formatearFecha(medicion.fields['Fecha Medicion'])}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-lg">👤</span>
-                              <p className="text-sm text-green-400 font-medium">
-                                {medicion.fields['Realiza Registro']}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">🏭</span>
-                              <p className="text-sm font-semibold text-blue-400">
-                                {nombreBiodigestor}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                          <div className="bg-gradient-to-br from-blue-600/20 to-blue-500/10 p-4 rounded-lg border border-blue-500/30 hover:border-blue-400/50 transition-colors">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">💨</span>
-                              <p className="text-xs font-medium text-blue-300">CH4 (Max) %</p>
-                            </div>
-                            <p className="text-xl font-bold text-blue-400">{medicion.fields['CH4 (Max) %']}</p>
-                          </div>
-                          <div className="bg-gradient-to-br from-green-600/20 to-green-500/10 p-4 rounded-lg border border-green-500/30 hover:border-green-400/50 transition-colors">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">🌿</span>
-                              <p className="text-xs font-medium text-green-300">CO2 %</p>
-                            </div>
-                            <p className="text-xl font-bold text-green-400">{medicion.fields['CO2 %']}</p>
-                          </div>
-                          <div className="bg-gradient-to-br from-yellow-600/20 to-yellow-500/10 p-4 rounded-lg border border-yellow-500/30 hover:border-yellow-400/50 transition-colors">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">💡</span>
-                              <p className="text-xs font-medium text-yellow-300">O2 %</p>
-                            </div>
-                            <p className="text-xl font-bold text-yellow-400">{medicion.fields['02 %']}</p>
-                          </div>
-                          <div className="bg-gradient-to-br from-red-600/20 to-red-500/10 p-4 rounded-lg border border-red-500/30 hover:border-red-400/50 transition-colors">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">⚠️</span>
-                              <p className="text-xs font-medium text-red-300">H2S</p>
-                            </div>
-                            <p className="text-xl font-bold text-red-400">{medicion.fields['H2S']}</p>
-                          </div>
-                          <div className="bg-gradient-to-br from-orange-600/20 to-orange-500/10 p-4 rounded-lg border border-orange-500/30 hover:border-orange-400/50 transition-colors">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">🔥</span>
-                              <p className="text-xs font-medium text-orange-300">CO</p>
-                            </div>
-                            <p className="text-xl font-bold text-orange-400">{medicion.fields['CO']}</p>
-                          </div>
-                          <div className="bg-gradient-to-br from-purple-600/20 to-purple-500/10 p-4 rounded-lg border border-purple-500/30 hover:border-purple-400/50 transition-colors">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">⚗️</span>
-                              <p className="text-xs font-medium text-purple-300">NO</p>
-                            </div>
-                            <p className="text-xl font-bold text-purple-400">{medicion.fields['NO']}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </main>
-
-        <Footer />
-      </div>
-    </BackgroundLayout>
+      {/* Mediciones anteriores */}
+      <Panel
+        titulo="Mediciones anteriores"
+        descripcion={mostrarMediciones ? 'Ámbar o rojo: fuera del rango de entrada al biofiltro.' : undefined}
+        acciones={
+          <button
+            type="button"
+            aria-expanded={mostrarMediciones}
+            onClick={() => setMostrarMediciones(!mostrarMediciones)}
+            className={claseBoton('secundario')}
+          >
+            {mostrarMediciones ? 'Ocultar tabla' : 'Ver tabla'}
+          </button>
+        }
+      >
+        {!mostrarMediciones ? (
+          <p className="text-tinta-suave">
+            {cargandoMediciones ? 'Cargando…' : `${mediciones.length} mediciones cargadas. `}
+            {!cargandoMediciones && (
+              <>
+                Para gráficas y filtros vaya a{' '}
+                <Link href="/monitoreo-biodigestores" className="font-semibold text-bosque underline underline-offset-2">
+                  monitoreo de biodigestores
+                </Link>
+                .
+              </>
+            )}
+          </p>
+        ) : cargandoMediciones ? (
+          <p className="flex items-center gap-3 py-6 justify-center text-tinta-suave" role="status">
+            <span className="w-6 h-6 rounded-full border-[3px] border-linea border-t-bosque animate-spin" aria-hidden="true" />
+            Cargando mediciones…
+          </p>
+        ) : mediciones.length === 0 ? (
+          <p className="text-tinta-suave text-center py-6">Todavía no hay mediciones registradas.</p>
+        ) : (
+          <div className="-mx-4 sm:mx-0 border-y sm:border border-linea sm:rounded-xl overflow-x-auto">
+            <table className="w-full text-left tabular-nums">
+              <thead className="bg-superficie-2">
+                <tr className="font-condensada font-semibold text-tinta-suave whitespace-nowrap">
+                  <th scope="col" className="px-4 py-3">Fecha</th>
+                  <th scope="col" className="px-4 py-3">Biodigestor</th>
+                  <th scope="col" className="px-4 py-3 text-right">CH4 (%)</th>
+                  <th scope="col" className="px-4 py-3 text-right">CO2 (%)</th>
+                  <th scope="col" className="px-4 py-3 text-right">O2 (%)</th>
+                  <th scope="col" className="px-4 py-3 text-right">H2S (ppm)</th>
+                  <th scope="col" className="px-4 py-3 text-right">CO (ppm)</th>
+                  <th scope="col" className="px-4 py-3 text-right">NO (ppm)</th>
+                  <th scope="col" className="px-4 py-3">Operador</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mediciones.map((medicion) => (
+                  <tr key={medicion.id} className="border-t border-linea">
+                    <td className="px-4 py-3 whitespace-nowrap text-tinta">{formatearFecha(medicion.fields['Fecha Medicion'])}</td>
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-tinta">{obtenerNombreBiodigestor(medicion)}</td>
+                    <td className={`px-4 py-3 text-right ${claseCeldaGas(numero(medicion.fields['CH4 (Max) %']), 'ch4')}`}>
+                      {cifra(numero(medicion.fields['CH4 (Max) %']))}
+                    </td>
+                    <td className={`px-4 py-3 text-right ${claseCeldaGas(numero(medicion.fields['CO2 %']), 'co2')}`}>
+                      {cifra(numero(medicion.fields['CO2 %']))}
+                    </td>
+                    <td className={`px-4 py-3 text-right ${claseCeldaGas(numero(medicion.fields['02 %']), 'o2')}`}>
+                      {cifra(numero(medicion.fields['02 %']))}
+                    </td>
+                    <td className={`px-4 py-3 text-right ${claseCeldaGas(numero(medicion.fields['H2S']), 'h2s')}`}>
+                      {cifra(numero(medicion.fields['H2S']))}
+                    </td>
+                    <td className="px-4 py-3 text-right text-tinta">{cifra(numero(medicion.fields['CO']))}</td>
+                    <td className="px-4 py-3 text-right text-tinta">{cifra(numero(medicion.fields['NO']))}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-tinta-suave">{medicion.fields['Realiza Registro']}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+    </Pagina>
   );
 }

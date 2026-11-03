@@ -1,11 +1,15 @@
 'use client';
 
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import BackgroundLayout from '@/components/BackgroundLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { airtableService, MedicionBiodigestores, Biodigestor } from '@/utils/airtable';
+import Pagina from '@/components/ui/Pagina';
+import EncabezadoPagina from '@/components/ui/EncabezadoPagina';
+import Indicadores, { type Indicador } from '@/components/ui/Indicadores';
+import Panel from '@/components/ui/Panel';
+import Aviso from '@/components/ui/Aviso';
+import { claseBoton, claseCampo, claseEtiqueta } from '@/components/ui/estilos';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -24,6 +28,10 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import {
+  UMBRALES_BIODIGESTOR, biodigestoresDistintos, cifra, claseCeldaGas, esDeHoy, fechaDeMedicion, fechaHora,
+  horaCorta, medicionMasReciente, numero, tonoGas
+} from './resumen';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -37,8 +45,38 @@ ChartJS.register(
   ArcElement
 );
 
+// Colores de las series: los tokens del sistema en hex (el canvas no lee clases).
+const COLOR = {
+  bosque: '#4b5a32',
+  hoja: '#7a9c4b',
+  ambar: '#d9a33f',
+  gris: '#6b7564',
+  rejilla: '#d8dcd0',
+  ejes: '#525c4b'
+};
+
+/** La familia real de Barlow que cargó next/font; el canvas la necesita por nombre. */
+function fuenteGraficas(): string {
+  return typeof window === 'undefined' ? 'Barlow, system-ui, sans-serif' : getComputedStyle(document.body).fontFamily;
+}
+
+function serie(label: string, data: number[], color: string, punteada = false) {
+  return {
+    label,
+    data,
+    borderColor: color,
+    backgroundColor: color,
+    borderWidth: 2,
+    borderDash: punteada ? [6, 4] : undefined,
+    pointRadius: 2,
+    pointHoverRadius: 5,
+    tension: 0.3,
+    fill: false,
+  };
+}
+
 export default function MonitoreoBiodigestoresPage() {
-  const { user: loggedInUser, logout } = useAuth();
+  const { user: loggedInUser } = useAuth();
   const [mediciones, setMediciones] = useState<MedicionBiodigestores[]>([]);
   const [biodigestores, setBiodigestores] = useState<Biodigestor[]>([]);
   const [biodigestorSeleccionado, setBiodigestorSeleccionado] = useState<string>('todos');
@@ -244,7 +282,7 @@ export default function MonitoreoBiodigestoresPage() {
       body: tableData,
       startY: yPosition,
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [41, 128, 185] },
+      headStyles: { fillColor: [75, 90, 50] },
     });
 
     // Agregar estadísticas
@@ -309,6 +347,7 @@ export default function MonitoreoBiodigestoresPage() {
     XLSX.writeFile(wb, `reporte_biodigestores_${fechaActual}.xlsx`);
   };
 
+
   // Funciones para preparar datos de gráficos
   const prepararDatosComposicionGas = () => {
     if (medicionesFiltradas.length === 0) return null;
@@ -319,19 +358,11 @@ export default function MonitoreoBiodigestoresPage() {
     const o2 = ultimaMedicion.fields['O2 %'] || 0;
 
     return {
-      labels: ['CH₄ (Metano)', 'CO₂', 'O₂ (Oxígeno)'],
+      labels: ['CH4 (metano)', 'CO2', 'O2 (oxígeno)'],
       datasets: [{
         data: [ch4, co2, o2],
-        backgroundColor: [
-          'rgba(34, 197, 94, 0.8)',  // Verde para CH4
-          'rgba(239, 68, 68, 0.8)',  // Rojo para CO2
-          'rgba(59, 130, 246, 0.8)' // Azul para O2
-        ],
-        borderColor: [
-          'rgba(34, 197, 94, 1)',
-          'rgba(239, 68, 68, 1)',
-          'rgba(59, 130, 246, 1)',
-        ],
+        backgroundColor: [COLOR.bosque, COLOR.gris, COLOR.hoja],
+        borderColor: '#ffffff',
         borderWidth: 2,
       }],
     };
@@ -354,33 +385,9 @@ export default function MonitoreoBiodigestoresPage() {
     return {
       labels,
       datasets: [
-        {
-          label: 'H₂S (ppm)',
-          data: registros.map(r => r.fields['H2S'] || 0),
-          borderColor: 'rgba(245, 158, 11, 1)',
-          backgroundColor: 'rgba(245, 158, 11, 0.1)',
-          tension: 0.4,
-          fill: true,
-          yAxisID: 'y',
-        },
-        {
-          label: 'CO (ppm)',
-          data: registros.map(r => r.fields['CO'] || 0),
-          borderColor: 'rgba(239, 68, 68, 1)',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          tension: 0.4,
-          fill: true,
-          yAxisID: 'y',
-        },
-        {
-          label: 'NO (ppm)',
-          data: registros.map(r => r.fields['NO'] || 0),
-          borderColor: 'rgba(168, 85, 247, 1)',
-          backgroundColor: 'rgba(168, 85, 247, 0.1)',
-          tension: 0.4,
-          fill: true,
-          yAxisID: 'y',
-        },
+        serie('H2S (ppm)', registros.map(r => r.fields['H2S'] || 0), COLOR.ambar),
+        serie('CO (ppm)', registros.map(r => r.fields['CO'] || 0), COLOR.gris),
+        serie('NO (ppm)', registros.map(r => r.fields['NO'] || 0), COLOR.bosque, true),
       ],
     };
   };
@@ -402,33 +409,33 @@ export default function MonitoreoBiodigestoresPage() {
     return {
       labels,
       datasets: [
-        {
-          label: 'CH₄ (%)',
-          data: registros.map(r => r.fields['CH4 (Max) %'] || 0),
-          borderColor: 'rgba(34, 197, 94, 1)',
-          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-          tension: 0.4,
-          fill: true,
-        },
-        {
-          label: 'CO₂ (%)',
-          data: registros.map(r => r.fields['CO2 %'] || 0),
-          borderColor: 'rgba(239, 68, 68, 1)',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          tension: 0.4,
-          fill: true,
-        },
-        {
-          label: 'O₂ (%)',
-          data: registros.map(r => r.fields['O2 %'] || 0),
-          borderColor: 'rgba(59, 130, 246, 1)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          tension: 0.4,
-          fill: true,
-        },
+        serie('CH4 (%)', registros.map(r => r.fields['CH4 (Max) %'] || 0), COLOR.bosque),
+        serie('CO2 (%)', registros.map(r => r.fields['CO2 %'] || 0), COLOR.gris),
+        serie('O2 (%)', registros.map(r => r.fields['O2 %'] || 0), COLOR.hoja, true),
       ],
     };
   };
+
+  const fuente = fuenteGraficas();
+  const leyenda = {
+    labels: {
+      color: COLOR.ejes,
+      font: { family: fuente, size: 13 },
+      usePointStyle: true,
+      pointStyle: 'line' as const,
+    },
+  };
+  const ejes = (tituloY: string) => ({
+    x: {
+      ticks: { color: COLOR.ejes, font: { family: fuente }, maxRotation: 0, autoSkipPadding: 12 },
+      grid: { color: COLOR.rejilla },
+    },
+    y: {
+      ticks: { color: COLOR.ejes, font: { family: fuente } },
+      grid: { color: COLOR.rejilla },
+      title: { display: true, text: tituloY, color: COLOR.ejes, font: { family: fuente } },
+    },
+  });
 
   const opcionesGraficoComposicion = {
     responsive: true,
@@ -436,22 +443,9 @@ export default function MonitoreoBiodigestoresPage() {
     plugins: {
       legend: {
         position: 'bottom' as const,
-        labels: {
-          color: 'white',
-          font: {
-            size: 12,
-          },
-        },
+        labels: { ...leyenda.labels, pointStyle: 'rect' as const },
       },
-      title: {
-        display: true,
-        text: biodigestorSeleccionado === 'todos' ? 'Composición Actual del Gas' : `Composición Actual - ${nombreBiodigestorSeleccionado}`,
-        color: 'white',
-        font: {
-          size: 16,
-          weight: 'bold' as const,
-        },
-      },
+      title: { display: false },
     },
   };
 
@@ -463,44 +457,10 @@ export default function MonitoreoBiodigestoresPage() {
       intersect: false,
     },
     plugins: {
-      title: {
-        display: true,
-        text: biodigestorSeleccionado === 'todos' ? 'Tendencia de Contaminantes' : `Contaminantes - ${nombreBiodigestorSeleccionado}`,
-        color: 'white',
-        font: {
-          size: 16,
-          weight: 'bold' as const,
-        },
-      },
-      legend: {
-        labels: {
-          color: 'white',
-        },
-      },
+      title: { display: false },
+      legend: leyenda,
     },
-    scales: {
-      x: {
-        ticks: {
-          color: 'white',
-        },
-        grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
-        },
-      },
-      y: {
-        ticks: {
-          color: 'white',
-        },
-        grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
-        },
-        title: {
-          display: true,
-          text: 'Concentración (ppm)',
-          color: 'white',
-        },
-      },
-    },
+    scales: ejes('Concentración (ppm)'),
   };
 
   const opcionesGraficoGases = {
@@ -511,515 +471,423 @@ export default function MonitoreoBiodigestoresPage() {
       intersect: false,
     },
     plugins: {
-      title: {
-        display: true,
-        text: biodigestorSeleccionado === 'todos' ? 'Composición de Gases a lo Largo del Tiempo' : `Gases - ${nombreBiodigestorSeleccionado}`,
-        color: 'white',
-        font: {
-          size: 16,
-          weight: 'bold' as const,
-        },
-      },
-      legend: {
-        labels: {
-          color: 'white',
-        },
-      },
+      title: { display: false },
+      legend: leyenda,
     },
-    scales: {
-      x: {
-        ticks: {
-          color: 'white',
-        },
-        grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
-        },
-      },
-      y: {
-        ticks: {
-          color: 'white',
-        },
-        grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
-        },
-        title: {
-          display: true,
-          text: 'Porcentaje (%)',
-          color: 'white',
-        },
-      },
-    },
+    scales: ejes('Porcentaje (%)'),
   };
+
+  // Resumen de arriba: sale de las mediciones que ya pasaron los filtros.
+  const resumen: Indicador[] = (() => {
+    const ultima = medicionMasReciente(medicionesFiltradas);
+    const deHoy = medicionesFiltradas.filter(esDeHoy);
+    const total = medicionesFiltradas.length;
+    const promedio = (campo: string) =>
+      total ? medicionesFiltradas.reduce((s, m) => s + (numero(m.fields[campo]) ?? 0), 0) / total : null;
+    const ch4 = ultima ? numero(ultima.fields['CH4 (Max) %']) : null;
+    const h2s = ultima ? numero(ultima.fields['H2S']) : null;
+    return [
+      {
+        etiqueta: 'Última medición',
+        valor: horaCorta(ultima ? fechaDeMedicion(ultima) : null),
+        detalle: ultima
+          ? `${obtenerNombreBiodigestor(ultima)}, ${ultima.fields['Realiza Registro'] || 'sin operador'}`
+          : 'No hay mediciones en la vista'
+      },
+      {
+        etiqueta: 'CH4 en la última',
+        valor: cifra(ch4, 1),
+        unidad: ch4 === null ? undefined : '%',
+        detalle: total ? `Promedio ${cifra(promedio('CH4 (Max) %'), 1)} %, rango ${UMBRALES_BIODIGESTOR.ch4.referencia}` : undefined,
+        tono: tonoGas(ch4, 'ch4')
+      },
+      {
+        etiqueta: 'H2S en la última',
+        valor: cifra(h2s, 0),
+        unidad: h2s === null ? undefined : 'ppm',
+        detalle: total ? `Promedio ${cifra(promedio('H2S'), 0)} ppm, rango ${UMBRALES_BIODIGESTOR.h2s.referencia}` : undefined,
+        tono: tonoGas(h2s, 'h2s')
+      },
+      {
+        etiqueta: 'Mediciones de hoy',
+        valor: deHoy.length,
+        detalle: biodigestorSeleccionado === 'todos'
+          ? `${biodigestoresDistintos(deHoy)} de ${biodigestores.length} biodigestores medidos`
+          : `${total} en la vista`
+      }
+    ];
+  })();
+
+  const hayFiltros =
+    biodigestorSeleccionado !== 'todos' || Object.values(filtros).some((v) => v !== '');
+
+  const chip = (activo: boolean) =>
+    `min-h-11 px-4 py-2 rounded-lg border-2 font-semibold transition-colors ${
+      activo ? 'bg-bosque border-bosque text-white' : 'bg-superficie border-linea-fuerte text-tinta hover:border-bosque'
+    }`;
 
   if (!loggedInUser) {
     return (
-      <BackgroundLayout>
-        <div className="min-h-screen flex items-center justify-center px-4">
-          <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-2xl p-6 sm:p-8 border border-white/20 max-w-md w-full">
-            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold mb-3">Acceso Requerido</h1>
-            <p className="text-gray-300 mb-6 text-sm sm:text-base">Debes iniciar sesión para acceder al monitoreo de biodigestores.</p>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
-              <span>Iniciar Sesión</span>
-            </button>
-          </div>
-        </div>
-      </BackgroundLayout>
+      <Pagina>
+        <Panel className="max-w-md mx-auto text-center">
+          <h1 className="font-condensada font-bold text-2xl text-tinta">Inicie sesión para continuar</h1>
+          <p className="mt-2 text-tinta-suave">El monitoreo de biodigestores solo está disponible con una sesión abierta.</p>
+          <Link href="/" className={`${claseBoton('primario', 'lg')} w-full mt-5`}>
+            Ir a iniciar sesión
+          </Link>
+        </Panel>
+      </Pagina>
     );
   }
 
   return (
-    <BackgroundLayout>
-      <div className="min-h-screen flex flex-col">
-        <Navbar
-          onLoginClick={() => {}}
-          loggedInUser={loggedInUser}
-          onLogout={logout}
-        />
+    <Pagina ancho="amplio">
+      <EncabezadoPagina
+        titulo="Monitoreo de biodigestores"
+        descripcion="Composición del gas medida en cada biodigestor: última lectura, tendencia y exportación."
+        acciones={
+          <>
+            <button
+              type="button"
+              onClick={cargarMedicionesBiodigestores}
+              disabled={cargandoDatos}
+              className={claseBoton('secundario')}
+            >
+              {cargandoDatos ? 'Actualizando…' : 'Actualizar'}
+            </button>
+            <button
+              type="button"
+              onClick={exportarExcel}
+              disabled={medicionesFiltradas.length === 0}
+              className={claseBoton('secundario')}
+            >
+              Descargar Excel
+            </button>
+            <button
+              type="button"
+              onClick={exportarPDF}
+              disabled={medicionesFiltradas.length === 0}
+              className={claseBoton('secundario')}
+            >
+              Descargar PDF
+            </button>
+          </>
+        }
+      >
+        <span>
+          Mostrando <span className="font-semibold text-tinta">{nombreBiodigestorSeleccionado.toLowerCase()}</span>
+        </span>
+        {mediciones.length > 0 && (
+          <span className="tabular-nums">
+            {medicionesFiltradas.length !== mediciones.length
+              ? `${medicionesFiltradas.length} de ${mediciones.length} mediciones`
+              : `${mediciones.length} mediciones`}
+          </span>
+        )}
+      </EncabezadoPagina>
 
-          <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
-            <div className="max-w-7xl mx-auto py-12">
-              <div className="text-center mb-12">
-                <h1 className="text-4xl font-bold text-white mb-4">Monitoreo de Biodigestores</h1>
-                <p className="text-gray-300 text-lg">Monitoreo y control en tiempo real de biodigestores</p>
+      {mediciones.length > 0 && <Indicadores items={resumen} />}
 
-                {/* Selector de Biodigestor */}
-                <div className="mt-8 mb-4">
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <button
-                      onClick={() => setBiodigestorSeleccionado('todos')}
-                      className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border ${
-                        biodigestorSeleccionado === 'todos'
-                          ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-400 shadow-lg shadow-green-500/25'
-                          : 'bg-slate-800/50 text-gray-300 border-slate-600/30 hover:bg-slate-700/50 hover:border-slate-500/50'
-                      }`}
-                    >
-                      🏭 Todos los Biodigestores
-                    </button>
-                    {biodigestores.map((bio) => (
-                      <button
-                        key={bio.id}
-                        onClick={() => setBiodigestorSeleccionado(bio.id)}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border ${
-                          biodigestorSeleccionado === bio.id
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-400 shadow-lg shadow-green-500/25'
-                            : 'bg-slate-800/50 text-gray-300 border-slate-600/30 hover:bg-slate-700/50 hover:border-slate-500/50'
-                        }`}
-                      >
-                        🔬 {bio.fields['Nombre Biodigestores']}
-                      </button>
-                    ))}
-                  </div>
-                  {biodigestorSeleccionado !== 'todos' && (
-                    <p className="text-green-400 text-sm mt-3 font-medium">
-                      Mostrando datos de: {nombreBiodigestorSeleccionado}
-                    </p>
-                  )}
-                </div>
+      {errorDatos && (
+        <Aviso tono="error" titulo="No se pudieron cargar las mediciones">
+          Revise la conexión y toque Actualizar.
+        </Aviso>
+      )}
 
-                {/* Panel de Filtros y Exportación */}
-                <div className="mt-8 bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl border border-slate-600/30 p-6">
-                  <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-                    {/* Botones de acción */}
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        onClick={() => setMostrarFiltros(!mostrarFiltros)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        🔍 {mostrarFiltros ? 'Ocultar Filtros' : 'Mostrar Filtros'}
-                      </button>
+      {/* Biodigestor y filtros */}
+      <Panel>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Biodigestor">
+          <button
+            type="button"
+            aria-pressed={biodigestorSeleccionado === 'todos'}
+            onClick={() => setBiodigestorSeleccionado('todos')}
+            className={chip(biodigestorSeleccionado === 'todos')}
+          >
+            Todos
+          </button>
+          {biodigestores.map((bio) => (
+            <button
+              key={bio.id}
+              type="button"
+              aria-pressed={biodigestorSeleccionado === bio.id}
+              onClick={() => setBiodigestorSeleccionado(bio.id)}
+              className={chip(biodigestorSeleccionado === bio.id)}
+            >
+              {bio.fields['Nombre Biodigestores']}
+            </button>
+          ))}
+        </div>
 
-                      <button
-                        onClick={limpiarFiltros}
-                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        🧹 Limpiar Filtros
-                      </button>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            aria-expanded={mostrarFiltros}
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            className={claseBoton('secundario')}
+          >
+            {mostrarFiltros ? 'Ocultar filtros' : 'Filtrar por fecha, operador o valores'}
+          </button>
+          {hayFiltros && (
+            <button type="button" onClick={limpiarFiltros} className={claseBoton('sutil')}>
+              Quitar filtros
+            </button>
+          )}
+        </div>
 
-                      <button
-                        onClick={exportarPDF}
-                        disabled={medicionesFiltradas.length === 0}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        📄 Exportar PDF
-                      </button>
+        {mostrarFiltros && (
+          <div className="mt-4 pt-4 border-t border-linea grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label htmlFor="filtro-desde" className={claseEtiqueta}>Desde</label>
+              <input
+                id="filtro-desde"
+                type="date"
+                value={filtros.fechaDesde}
+                onChange={(e) => setFiltros({...filtros, fechaDesde: e.target.value})}
+                className={claseCampo}
+              />
+            </div>
 
-                      <button
-                        onClick={exportarExcel}
-                        disabled={medicionesFiltradas.length === 0}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        📊 Exportar Excel
-                      </button>
-                    </div>
+            <div>
+              <label htmlFor="filtro-hasta" className={claseEtiqueta}>Hasta</label>
+              <input
+                id="filtro-hasta"
+                type="date"
+                value={filtros.fechaHasta}
+                onChange={(e) => setFiltros({...filtros, fechaHasta: e.target.value})}
+                className={claseCampo}
+              />
+            </div>
 
-                    {/* Información del filtro aplicado */}
-                    <div className="text-sm text-gray-300">
-                      {medicionesFiltradas.length !== mediciones.length && (
-                        <span>Mostrando {medicionesFiltradas.length} de {mediciones.length} registros</span>
-                      )}
-                      {medicionesFiltradas.length === mediciones.length && mediciones.length > 0 && (
-                        <span>Total: {mediciones.length} registros</span>
-                      )}
-                    </div>
-                  </div>
+            <div>
+              <label htmlFor="filtro-operador" className={claseEtiqueta}>Operador</label>
+              <select
+                id="filtro-operador"
+                value={filtros.operador}
+                onChange={(e) => setFiltros({...filtros, operador: e.target.value})}
+                className={claseCampo}
+              >
+                <option value="">Todos los operadores</option>
+                {Array.from(new Set(mediciones.map(m => m.fields['Realiza Registro']).filter(Boolean))).map(op => (
+                  <option key={op} value={op}>{op}</option>
+                ))}
+              </select>
+            </div>
 
-                  {/* Panel de Filtros Expandible */}
-                  {mostrarFiltros && (
-                    <div className="mt-6 pt-6 border-t border-slate-600/30">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {/* Filtros de Fecha */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">Fecha Desde</label>
-                          <input
-                            type="date"
-                            value={filtros.fechaDesde}
-                            onChange={(e) => setFiltros({...filtros, fechaDesde: e.target.value})}
-                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
+            <div>
+              <label htmlFor="filtro-biodigestor" className={claseEtiqueta}>Biodigestor</label>
+              <select
+                id="filtro-biodigestor"
+                value={biodigestorSeleccionado}
+                onChange={(e) => setBiodigestorSeleccionado(e.target.value)}
+                className={claseCampo}
+              >
+                <option value="todos">Todos los biodigestores</option>
+                {biodigestores.map(bio => (
+                  <option key={bio.id} value={bio.id}>{bio.fields['Nombre Biodigestores']}</option>
+                ))}
+              </select>
+            </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">Fecha Hasta</label>
-                          <input
-                            type="date"
-                            value={filtros.fechaHasta}
-                            onChange={(e) => setFiltros({...filtros, fechaHasta: e.target.value})}
-                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
+            <div>
+              <label htmlFor="filtro-ch4-min" className={claseEtiqueta}>CH4 mínimo (%)</label>
+              <input
+                id="filtro-ch4-min"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                value={filtros.ch4Min}
+                onChange={(e) => setFiltros({...filtros, ch4Min: e.target.value})}
+                className={claseCampo}
+                placeholder="0"
+              />
+            </div>
 
-                        {/* Filtro de Operador */}
-                        <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">Operador</label>
-                          <select
-                            value={filtros.operador}
-                            onChange={(e) => setFiltros({...filtros, operador: e.target.value})}
-                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Todos los operadores</option>
-                            {Array.from(new Set(mediciones.map(m => m.fields['Realiza Registro']).filter(Boolean))).map(op => (
-                              <option key={op} value={op}>{op}</option>
-                            ))}
-                          </select>
-                        </div>
+            <div>
+              <label htmlFor="filtro-ch4-max" className={claseEtiqueta}>CH4 máximo (%)</label>
+              <input
+                id="filtro-ch4-max"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                value={filtros.ch4Max}
+                onChange={(e) => setFiltros({...filtros, ch4Max: e.target.value})}
+                className={claseCampo}
+                placeholder="100"
+              />
+            </div>
 
-                        {/* Filtro de Biodigestor (en panel de filtros) */}
-                        <div>
-                          <label className="block text-sm font-medium text-green-300 mb-2">Biodigestor</label>
-                          <select
-                            value={biodigestorSeleccionado}
-                            onChange={(e) => setBiodigestorSeleccionado(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                          >
-                            <option value="todos">Todos los biodigestores</option>
-                            {biodigestores.map(bio => (
-                              <option key={bio.id} value={bio.id}>{bio.fields['Nombre Biodigestores']}</option>
-                            ))}
-                          </select>
-                        </div>
+            <div>
+              <label htmlFor="filtro-h2s-min" className={claseEtiqueta}>H2S mínimo (ppm)</label>
+              <input
+                id="filtro-h2s-min"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                value={filtros.h2sMin}
+                onChange={(e) => setFiltros({...filtros, h2sMin: e.target.value})}
+                className={claseCampo}
+                placeholder="0"
+              />
+            </div>
 
-                        {/* Rangos de CH4 */}
-                        <div>
-                          <label className="block text-sm font-medium text-green-400 mb-2">CH₄ Mín (%) </label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={filtros.ch4Min}
-                            onChange={(e) => setFiltros({...filtros, ch4Min: e.target.value})}
-                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                            placeholder="0.0"
-                          />
-                        </div>
+            <div>
+              <label htmlFor="filtro-h2s-max" className={claseEtiqueta}>H2S máximo (ppm)</label>
+              <input
+                id="filtro-h2s-max"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                value={filtros.h2sMax}
+                onChange={(e) => setFiltros({...filtros, h2sMax: e.target.value})}
+                className={claseCampo}
+                placeholder="Sin límite"
+              />
+            </div>
+          </div>
+        )}
+      </Panel>
 
-                        <div>
-                          <label className="block text-sm font-medium text-green-400 mb-2">CH₄ Máx (%)</label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={filtros.ch4Max}
-                            onChange={(e) => setFiltros({...filtros, ch4Max: e.target.value})}
-                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                            placeholder="100.0"
-                          />
-                        </div>
+      {cargandoDatos && mediciones.length === 0 && (
+        <div className="flex items-center gap-3 py-12 justify-center text-tinta-suave" role="status">
+          <span className="w-6 h-6 rounded-full border-[3px] border-linea border-t-bosque animate-spin" aria-hidden="true" />
+          Cargando las mediciones…
+        </div>
+      )}
 
-                        {/* Rangos de H2S */}
-                        <div>
-                          <label className="block text-sm font-medium text-yellow-400 mb-2">H₂S Mín (ppm)</label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={filtros.h2sMin}
-                            onChange={(e) => setFiltros({...filtros, h2sMin: e.target.value})}
-                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            placeholder="0.0"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-yellow-400 mb-2">H₂S Máx (ppm)</label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={filtros.h2sMax}
-                            onChange={(e) => setFiltros({...filtros, h2sMax: e.target.value})}
-                            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                            placeholder="100.0"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Indicador de estado y recarga */}
-                <div className="mt-4 flex justify-center items-center space-x-4">
-                  {cargandoDatos && (
-                    <div className="flex items-center text-blue-400">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mr-2"></div>
-                      <span className="text-sm">Actualizando datos...</span>
-                    </div>
-                  )}
-
-                  {errorDatos && (
-                    <div className="text-red-400 text-sm">
-                      Error al cargar datos: {errorDatos}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={cargarMedicionesBiodigestores}
-                    disabled={cargandoDatos}
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white text-sm rounded-lg transition-colors"
-                  >
-                    🔄 Recargar
-                  </button>
-                </div>
+      {/* Gráficos de análisis. Van antes de la tabla: ordenan la lista por fecha. */}
+      {medicionesFiltradas.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <Panel
+              className="lg:col-span-2"
+              titulo="Composición actual del gas"
+              descripcion={nombreBiodigestorSeleccionado}
+            >
+              <div className="h-72">
+                {prepararDatosComposicionGas() && (
+                  <Doughnut
+                    data={prepararDatosComposicionGas()!}
+                    options={opcionesGraficoComposicion}
+                  />
+                )}
               </div>
+            </Panel>
 
-              {/* KPIs Principales */}
-              {medicionesFiltradas.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                  {(() => {
-                    const ultimaMedicion = medicionesFiltradas[medicionesFiltradas.length - 1];
-                    const promedioCH4 = medicionesFiltradas.reduce((sum, m) => sum + (m.fields['CH4 (Max) %'] || 0), 0) / medicionesFiltradas.length;
-                    const promedioH2S = medicionesFiltradas.reduce((sum, m) => sum + (m.fields['H2S'] || 0), 0) / medicionesFiltradas.length;
-                    const totalMediciones = medicionesFiltradas.length;
-                    const ultimaFecha = typeof ultimaMedicion.fields['Fecha Medicion'] === 'string'
-                      ? new Date(ultimaMedicion.fields['Fecha Medicion']).toLocaleString('es-CO')
-                      : 'Fecha no disponible';
+            <Panel
+              className="lg:col-span-3"
+              titulo="H2S, CO y NO en el tiempo"
+              descripcion={nombreBiodigestorSeleccionado}
+            >
+              <div className="h-72">
+                {prepararDatosTendenciaContaminantes() && (
+                  <Line
+                    data={prepararDatosTendenciaContaminantes()!}
+                    options={opcionesGraficoContaminantes}
+                  />
+                )}
+              </div>
+            </Panel>
+          </div>
 
-                    return (
-                      <>
-                        <div className="bg-gradient-to-br from-green-900/20 to-green-800/20 rounded-xl p-6 border border-green-600/30">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-green-400 text-sm font-medium">CH₄ Promedio</p>
-                              <p className="text-white text-2xl font-bold">{promedioCH4.toFixed(1)}%</p>
-                              <p className="text-green-300 text-xs">Eficiencia del proceso</p>
-                            </div>
-                            <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center">
-                              <span className="text-green-400 text-xl">🟢</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-yellow-900/20 to-yellow-800/20 rounded-xl p-6 border border-yellow-600/30">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-yellow-400 text-sm font-medium">H₂S Promedio</p>
-                              <p className="text-white text-2xl font-bold">{promedioH2S.toFixed(1)} ppm</p>
-                              <p className="text-yellow-300 text-xs">Control de contaminación</p>
-                            </div>
-                            <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center">
-                              <span className="text-yellow-400 text-xl">⚠️</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-blue-900/20 to-blue-800/20 rounded-xl p-6 border border-blue-600/30">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-blue-400 text-sm font-medium">Total Mediciones</p>
-                              <p className="text-white text-2xl font-bold">{totalMediciones}</p>
-                              <p className="text-blue-300 text-xs">Registros en filtro</p>
-                            </div>
-                            <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center">
-                              <span className="text-blue-400 text-xl">📊</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-purple-900/20 to-purple-800/20 rounded-xl p-6 border border-purple-600/30">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-purple-400 text-sm font-medium">Última Medición</p>
-                              <p className="text-white text-sm font-bold">{ultimaFecha.split(',')[0]}</p>
-                              <p className="text-purple-300 text-xs">Datos más recientes</p>
-                            </div>
-                            <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center">
-                              <span className="text-purple-400 text-xl">🕒</span>
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* Gráficos de Análisis */}
-              {medicionesFiltradas.length > 0 && (
-                <div className="space-y-8">
-                  <h2 className="text-3xl font-bold text-white mb-8 text-center">
-                    📈 Análisis de Datos {biodigestorSeleccionado !== 'todos' ? `- ${nombreBiodigestorSeleccionado}` : 'de Biodigestores'}
-                  </h2>
-
-                  {/* Primera fila de gráficos */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Composición del Gas */}
-                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-600/30">
-                      <div className="h-80">
-                        {prepararDatosComposicionGas() && (
-                          <Doughnut
-                            data={prepararDatosComposicionGas()!}
-                            options={opcionesGraficoComposicion}
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Tendencia de Contaminantes */}
-                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-600/30">
-                      <div className="h-80">
-                        {prepararDatosTendenciaContaminantes() && (
-                          <Line
-                            data={prepararDatosTendenciaContaminantes()!}
-                            options={opcionesGraficoContaminantes}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Segunda fila de gráficos */}
-                  <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-600/30">
-                    <div className="h-96">
-                      {prepararDatosComposicionGases() && (
-                        <Line
-                          data={prepararDatosComposicionGases()!}
-                          options={opcionesGraficoGases}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Tabla de Mediciones Recientes */}
-              {medicionesFiltradas.length > 0 && (
-                <div className="mt-12">
-                  <h2 className="text-2xl font-bold text-white mb-6">📋 Mediciones {medicionesFiltradas.length !== mediciones.length ? 'Filtradas' : 'Recientes'}</h2>
-                  <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl border border-slate-600/30 overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-slate-700/30">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Fecha</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Biodigestor</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">CH₄ (%)</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">CO₂ (%)</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">O₂ (%)</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">H₂S (ppm)</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">CO (ppm)</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">NO (ppm)</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Operador</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-600/30">
-                          {medicionesFiltradas.slice(-10).reverse().map((medicion, index) => (
-                            <tr key={medicion.id || index} className="hover:bg-slate-700/20">
-                              <td className="px-4 py-3 text-sm text-white">
-                                {typeof medicion.fields['Fecha Medicion'] === 'string'
-                                  ? new Date(medicion.fields['Fecha Medicion']).toLocaleString('es-CO')
-                                  : 'N/A'}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-emerald-300 font-medium">
-                                {obtenerNombreBiodigestor(medicion)}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-green-400 font-medium">
-                                {medicion.fields['CH4 (Max) %'] || 0}%
-                              </td>
-                              <td className="px-4 py-3 text-sm text-red-400">
-                                {medicion.fields['CO2 %'] || 0}%
-                              </td>
-                              <td className="px-4 py-3 text-sm text-blue-400">
-                                {medicion.fields['O2 %'] || 0}%
-                              </td>
-                              <td className="px-4 py-3 text-sm text-yellow-400">
-                                {medicion.fields['H2S'] || 0}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-orange-400">
-                                {medicion.fields['CO'] || 0}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-purple-400">
-                                {medicion.fields['NO'] || 0}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-300">
-                                {medicion.fields['Realiza Registro'] || 'N/A'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Estado vacío */}
-              {!cargandoDatos && medicionesFiltradas.length === 0 && !errorDatos && (
-                <div className="text-center py-12">
-                  <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-600/30">
-                    <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <h3 className="text-xl font-bold text-white mb-2">
-                      {mediciones.length > 0 ? 'No hay mediciones que coincidan con los filtros' : 'No hay mediciones disponibles'}
-                    </h3>
-                    <p className="text-gray-400">
-                      {mediciones.length > 0
-                        ? 'Intenta ajustar los filtros para ver más resultados.'
-                        : 'No se encontraron registros de mediciones de biodigestores.'
-                      }
-                    </p>
-                    {mediciones.length > 0 && (
-                      <button
-                        onClick={limpiarFiltros}
-                        className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                      >
-                        Limpiar Filtros
-                      </button>
-                    )}
-                  </div>
-                </div>
+          <Panel titulo="CH4, CO2 y O2 en el tiempo" descripcion={nombreBiodigestorSeleccionado}>
+            <div className="h-80 sm:h-96">
+              {prepararDatosComposicionGases() && (
+                <Line
+                  data={prepararDatosComposicionGases()!}
+                  options={opcionesGraficoGases}
+                />
               )}
             </div>
-          </main>
+          </Panel>
+        </>
+      )}
 
-        <Footer />
-      </div>
-    </BackgroundLayout>
+      {/* Tabla de mediciones recientes */}
+      {medicionesFiltradas.length > 0 && (
+        <section>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-3">
+            <h2 className="font-condensada font-bold text-xl sm:text-2xl text-tinta">
+              Últimas mediciones{medicionesFiltradas.length !== mediciones.length ? ' del filtro' : ''}
+            </h2>
+            <p className="text-sm text-tinta-suave">
+              Ámbar o rojo: fuera del rango de entrada al biofiltro.
+            </p>
+          </div>
+          <div className="bg-superficie border border-linea rounded-xl overflow-x-auto">
+            <table className="w-full text-left tabular-nums">
+              <thead className="bg-superficie-2">
+                <tr className="font-condensada font-semibold text-tinta-suave whitespace-nowrap">
+                  <th scope="col" className="px-4 py-3">Fecha</th>
+                  <th scope="col" className="px-4 py-3">Biodigestor</th>
+                  <th scope="col" className="px-4 py-3 text-right">CH4 (%)</th>
+                  <th scope="col" className="px-4 py-3 text-right">CO2 (%)</th>
+                  <th scope="col" className="px-4 py-3 text-right">O2 (%)</th>
+                  <th scope="col" className="px-4 py-3 text-right">H2S (ppm)</th>
+                  <th scope="col" className="px-4 py-3 text-right">CO (ppm)</th>
+                  <th scope="col" className="px-4 py-3 text-right">NO (ppm)</th>
+                  <th scope="col" className="px-4 py-3">Operador</th>
+                </tr>
+              </thead>
+              <tbody>
+                {medicionesFiltradas.slice(-10).reverse().map((medicion, index) => (
+                  <tr key={medicion.id || index} className="border-t border-linea">
+                    <td className="px-4 py-3 whitespace-nowrap text-tinta">
+                      {fechaHora(fechaDeMedicion(medicion))}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-tinta">
+                      {obtenerNombreBiodigestor(medicion)}
+                    </td>
+                    <td className={`px-4 py-3 text-right ${claseCeldaGas(medicion.fields['CH4 (Max) %'] || 0, 'ch4')}`}>
+                      {medicion.fields['CH4 (Max) %'] || 0}
+                    </td>
+                    <td className={`px-4 py-3 text-right ${claseCeldaGas(medicion.fields['CO2 %'] || 0, 'co2')}`}>
+                      {medicion.fields['CO2 %'] || 0}
+                    </td>
+                    <td className={`px-4 py-3 text-right ${claseCeldaGas(medicion.fields['O2 %'] || 0, 'o2')}`}>
+                      {medicion.fields['O2 %'] || 0}
+                    </td>
+                    <td className={`px-4 py-3 text-right ${claseCeldaGas(medicion.fields['H2S'] || 0, 'h2s')}`}>
+                      {medicion.fields['H2S'] || 0}
+                    </td>
+                    <td className="px-4 py-3 text-right text-tinta">
+                      {medicion.fields['CO'] || 0}
+                    </td>
+                    <td className="px-4 py-3 text-right text-tinta">
+                      {medicion.fields['NO'] || 0}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-tinta-suave">
+                      {medicion.fields['Realiza Registro'] || 'Sin operador'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* Estado vacío */}
+      {!cargandoDatos && medicionesFiltradas.length === 0 && !errorDatos && (
+        <Panel className="text-center py-10">
+          <h2 className="font-condensada font-bold text-xl text-tinta">
+            {mediciones.length > 0 ? 'Ninguna medición coincide con los filtros' : 'Todavía no hay mediciones registradas'}
+          </h2>
+          <p className="mt-1 text-tinta-suave">
+            {mediciones.length > 0
+              ? 'Amplíe el rango de fechas o quite los filtros para ver más mediciones.'
+              : 'Las mediciones se registran en Registro de biodigestores.'}
+          </p>
+          {mediciones.length > 0 ? (
+            <button type="button" onClick={limpiarFiltros} className={`${claseBoton('secundario')} mt-4`}>
+              Quitar filtros
+            </button>
+          ) : (
+            <Link href="/registro-biodigestores" className={`${claseBoton('secundario')} mt-4`}>
+              Ir a registro de biodigestores
+            </Link>
+          )}
+        </Panel>
+      )}
+    </Pagina>
   );
 }

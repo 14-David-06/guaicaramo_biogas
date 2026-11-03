@@ -1,11 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import BackgroundLayout from '@/components/BackgroundLayout';
 import TurnoGuard from '@/components/TurnoGuard';
+import Pagina from '@/components/ui/Pagina';
+import EncabezadoPagina from '@/components/ui/EncabezadoPagina';
+import Indicadores from '@/components/ui/Indicadores';
+import Panel from '@/components/ui/Panel';
+import Aviso from '@/components/ui/Aviso';
+import { claseBoton, claseCampo, claseEtiqueta } from '@/components/ui/estilos';
 import { useAuth } from '@/hooks/useAuth';
+import { hoyBogota } from '@/lib/informe/fechas';
 
 // Captura y seguimiento de la remoción de H2S del tren de filtrado:
 // entrada → biofiltro → filtro de biochar → motores.
@@ -38,8 +42,20 @@ function vistaPrevia(antes: string, despues: string): number | null {
   return Math.round(((a - d) / a) * 1000) / 10;
 }
 
+const COLUMNAS: { titulo: string; derecha?: boolean }[] = [
+  { titulo: 'Fecha' },
+  { titulo: 'Hora' },
+  { titulo: 'Entrada (ppm)', derecha: true },
+  { titulo: 'Salida biofiltro (ppm)', derecha: true },
+  { titulo: 'Salida biochar (ppm)', derecha: true },
+  { titulo: '% biofiltro', derecha: true },
+  { titulo: '% biochar', derecha: true },
+  { titulo: '% total', derecha: true },
+  { titulo: 'Operador' }
+];
+
 export default function RemocionH2SPage() {
-  const { user: loggedInUser, logout } = useAuth();
+  const { user: loggedInUser } = useAuth();
   const [mediciones, setMediciones] = useState<Medicion[]>([]);
   const [remocionMinima, setRemocionMinima] = useState(80);
   const [cargando, setCargando] = useState(true);
@@ -90,10 +106,10 @@ export default function RemocionH2SPage() {
       setEntrada('');
       setSalidaBiofiltro('');
       setSalidaBiochar('');
-      setMensaje({ tipo: 'ok', texto: 'Medición registrada.' });
+      setMensaje({ tipo: 'ok', texto: 'Medición guardada.' });
       cargar();
     } catch (e) {
-      setMensaje({ tipo: 'error', texto: e instanceof Error ? e.message : 'No se pudo registrar la medición.' });
+      setMensaje({ tipo: 'error', texto: e instanceof Error ? e.message : 'No se pudo guardar la medición. Revise la conexión e intente de nuevo.' });
     } finally {
       setGuardando(false);
     }
@@ -105,118 +121,157 @@ export default function RemocionH2SPage() {
   const promedio = totales.length ? Math.round((totales.reduce((a, b) => a + b, 0) / totales.length) * 10) / 10 : null;
   const ultima = mediciones[0];
 
-  const campo =
-    'w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-lg focus:outline-none focus:ring-2 focus:ring-green-500';
+  // Resumen: solo con las mediciones de 30 días que ya trae la página.
+  const bajoMinimo = (v: number | null) => v !== null && v < remocionMinima;
+  const hoy = hoyBogota();
+  const deHoy = mediciones.filter((m) => m.fecha === hoy).length;
+  const fueraDeRango = mediciones.filter((m) => bajoMinimo(m.remocionTotal)).length;
+  const puedeGuardar = !!entrada && (!!salidaBiofiltro || !!salidaBiochar);
+
+  const indicadores = [
+    {
+      etiqueta: 'Última remoción total',
+      valor: valor(ultima?.remocionTotal ?? null),
+      unidad: ultima?.remocionTotal != null ? '%' : undefined,
+      detalle: ultima ? `${ultima.fecha} ${ultima.hora}${ultima.operador ? ` · ${ultima.operador}` : ''}` : 'Sin mediciones',
+      tono: bajoMinimo(ultima?.remocionTotal ?? null) ? ('alerta' as const) : undefined
+    },
+    {
+      etiqueta: 'Promedio 30 días',
+      valor: valor(promedio),
+      unidad: promedio !== null ? '%' : undefined,
+      detalle: `Mínimo esperado ${remocionMinima} %`,
+      tono: bajoMinimo(promedio) ? ('alerta' as const) : undefined
+    },
+    {
+      etiqueta: 'Mediciones hoy',
+      valor: deHoy,
+      detalle: `${mediciones.length} en los últimos 30 días`
+    },
+    {
+      etiqueta: 'Bajo el mínimo',
+      valor: fueraDeRango,
+      detalle: `Remoción total menor a ${remocionMinima} % en 30 días`,
+      tono: fueraDeRango > 0 ? ('alerta' as const) : undefined
+    }
+  ];
+
+  const campoNumero = `${claseCampo} text-lg font-semibold tabular-nums`;
 
   return (
     <TurnoGuard>
-      <BackgroundLayout>
-        <div className="min-h-screen flex flex-col">
-          <Navbar onLoginClick={() => {}} loggedInUser={loggedInUser} onLogout={logout} />
+      <Pagina>
+        <EncabezadoPagina
+          titulo="Remoción de H2S"
+          descripcion="H2S antes y después del biofiltro y del filtro de biochar, con el porcentaje que remueve cada etapa."
+        />
 
-          <main className="pt-20 px-4 sm:px-6 lg:px-8 flex-grow">
-            <div className="max-w-5xl mx-auto py-8">
-              <div className="mb-8">
-                <h1 className="text-3xl sm:text-4xl font-bold text-white">Remoción de H2S</h1>
-                <p className="text-gray-400 text-sm sm:text-base">
-                  H2S antes y después del biofiltro y del filtro de biochar, con el porcentaje removido por etapa
-                </p>
-              </div>
+        {!cargando && <Indicadores items={indicadores} />}
 
-              <div className="grid lg:grid-cols-5 gap-6 mb-8">
-                <form onSubmit={guardar} className="lg:col-span-3 bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
-                  <h2 className="text-white font-semibold">Nueva medición (ppm)</h2>
-                  <div>
-                    <label htmlFor="entrada" className="block text-sm text-gray-300 mb-2">Entrada al biofiltro *</label>
-                    <input id="entrada" type="number" inputMode="decimal" min="0" step="any" required value={entrada} onChange={(e) => setEntrada(e.target.value)} className={campo} />
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="salidaBiofiltro" className="block text-sm text-gray-300 mb-2">Salida del biofiltro</label>
-                      <input id="salidaBiofiltro" type="number" inputMode="decimal" min="0" step="any" value={salidaBiofiltro} onChange={(e) => setSalidaBiofiltro(e.target.value)} className={campo} />
-                    </div>
-                    <div>
-                      <label htmlFor="salidaBiochar" className="block text-sm text-gray-300 mb-2">Salida del filtro de biochar</label>
-                      <input id="salidaBiochar" type="number" inputMode="decimal" min="0" step="any" value={salidaBiochar} onChange={(e) => setSalidaBiochar(e.target.value)} className={campo} />
-                    </div>
-                  </div>
-                  <p className="text-gray-400 text-sm">
-                    Remoción biofiltro: <strong className="text-white">{valor(previaBiofiltro, '%')}</strong>
-                    {' · '}Remoción total: <strong className="text-white">{valor(previaTotal, '%')}</strong>
-                  </p>
-                  {mensaje && (
-                    <p className={mensaje.tipo === 'ok' ? 'text-green-300 text-sm' : 'text-red-300 text-sm'}>{mensaje.texto}</p>
-                  )}
-                  <button
-                    type="submit"
-                    disabled={guardando || !entrada || (!salidaBiofiltro && !salidaBiochar)}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {guardando ? 'Guardando…' : 'Registrar medición'}
-                  </button>
-                </form>
-
-                <div className="lg:col-span-2 grid grid-cols-2 lg:grid-cols-1 gap-4 content-start">
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                    <p className="text-gray-400 text-xs uppercase tracking-wide">Remoción promedio (30 días)</p>
-                    <p className={`text-3xl font-bold mt-1 ${promedio !== null && promedio < remocionMinima ? 'text-amber-400' : 'text-white'}`}>
-                      {valor(promedio, '%')}
-                    </p>
-                    <p className="text-gray-500 text-xs mt-1">Mínimo esperado {remocionMinima} %</p>
-                  </div>
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                    <p className="text-gray-400 text-xs uppercase tracking-wide">Última medición</p>
-                    <p className="text-3xl font-bold mt-1 text-white">{valor(ultima?.remocionTotal ?? null, '%')}</p>
-                    <p className="text-gray-500 text-xs mt-1">{ultima ? `${ultima.fecha} ${ultima.hora} · ${ultima.operador}` : 'Sin mediciones'}</p>
-                  </div>
+        <form onSubmit={guardar}>
+          <Panel
+            titulo="Nueva medición"
+            descripcion="Valores en ppm, tomados con el equipo portátil. La entrada y al menos una salida son obligatorias."
+          >
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="entrada" className={claseEtiqueta}>Entrada al biofiltro</label>
+                  <input id="entrada" type="number" inputMode="decimal" min="0" step="any" required value={entrada} onChange={(e) => setEntrada(e.target.value)} className={campoNumero} />
+                </div>
+                <div>
+                  <label htmlFor="salidaBiofiltro" className={claseEtiqueta}>Salida del biofiltro</label>
+                  <input id="salidaBiofiltro" type="number" inputMode="decimal" min="0" step="any" value={salidaBiofiltro} onChange={(e) => setSalidaBiofiltro(e.target.value)} className={campoNumero} />
+                </div>
+                <div>
+                  <label htmlFor="salidaBiochar" className={claseEtiqueta}>Salida del filtro de biochar</label>
+                  <input id="salidaBiochar" type="number" inputMode="decimal" min="0" step="any" value={salidaBiochar} onChange={(e) => setSalidaBiochar(e.target.value)} className={campoNumero} />
                 </div>
               </div>
-
-              <section>
-                <h2 className="text-lg font-semibold text-white mb-3">Mediciones de los últimos 30 días</h2>
-                {cargando ? (
-                  <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500"></div>
-                  </div>
-                ) : mediciones.length === 0 ? (
-                  <p className="text-gray-400 text-sm">Aún no hay mediciones registradas.</p>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl border border-white/10">
-                    <table className="w-full text-sm">
-                      <thead className="bg-white/10">
-                        <tr>
-                          {['Fecha', 'Hora', 'Entrada', 'Salida biofiltro', 'Salida biochar', '% biofiltro', '% biochar', '% total', 'Operador'].map((h) => (
-                            <th key={h} className="px-3 py-2 text-left text-gray-300 font-medium whitespace-nowrap">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {mediciones.map((m) => (
-                          <tr key={m.id} className="border-t border-white/5 text-gray-200">
-                            <td className="px-3 py-2 whitespace-nowrap">{m.fecha}</td>
-                            <td className="px-3 py-2">{m.hora}</td>
-                            <td className="px-3 py-2">{valor(m.entradaBiofiltro)}</td>
-                            <td className="px-3 py-2">{valor(m.salidaBiofiltro)}</td>
-                            <td className="px-3 py-2">{valor(m.salidaBiochar)}</td>
-                            <td className="px-3 py-2">{valor(m.remocionBiofiltro, '%')}</td>
-                            <td className="px-3 py-2">{valor(m.remocionBiochar, '%')}</td>
-                            <td className={`px-3 py-2 font-semibold ${m.remocionTotal !== null && m.remocionTotal < remocionMinima ? 'text-amber-400' : ''}`}>
-                              {valor(m.remocionTotal, '%')}
-                            </td>
-                            <td className="px-3 py-2">{m.operador || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+  
+              <dl className="grid grid-cols-2 bg-superficie-2 border border-linea rounded-lg divide-x divide-linea">
+                <div className="px-4 py-3">
+                  <dt className="text-sm font-semibold text-tinta-suave">Remoción biofiltro</dt>
+                  <dd className="font-condensada font-bold text-2xl tabular-nums text-tinta">{valor(previaBiofiltro, '%')}</dd>
+                </div>
+                <div className="px-4 py-3">
+                  <dt className="text-sm font-semibold text-tinta-suave">Remoción total</dt>
+                  <dd className={`font-condensada font-bold text-2xl tabular-nums ${bajoMinimo(previaTotal) ? 'text-ambar' : 'text-tinta'}`}>
+                    {valor(previaTotal, '%')}
+                  </dd>
+                </div>
+              </dl>
+  
+              {mensaje && (
+                <Aviso tono={mensaje.tipo === 'ok' ? 'exito' : 'error'}>{mensaje.texto}</Aviso>
+              )}
+  
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={guardando || !puedeGuardar}
+                  className={`${claseBoton('primario', 'lg')} w-full sm:w-auto`}
+                >
+                  {guardando ? 'Guardando…' : 'Guardar medición'}
+                </button>
+                {!puedeGuardar && !guardando && (
+                  <p className="text-sm text-tinta-suave">Digite la entrada y al menos una salida para guardar.</p>
                 )}
-              </section>
+              </div>
             </div>
-          </main>
+          </Panel>
+        </form>
 
-          <Footer />
-        </div>
-      </BackgroundLayout>
+        <Panel titulo="Mediciones de los últimos 30 días" descripcion={mediciones.length > 0 ? `En ámbar, las de remoción total menor a ${remocionMinima} %.` : undefined}>
+          {cargando ? (
+            <div className="flex items-center gap-3 py-12 justify-center text-tinta-suave" role="status">
+              <span className="w-6 h-6 rounded-full border-[3px] border-linea border-t-bosque animate-spin" aria-hidden="true" />
+              Cargando las mediciones…
+            </div>
+          ) : mediciones.length === 0 ? (
+            <p className="text-tinta-suave py-6 text-center">Todavía no hay mediciones registradas en los últimos 30 días.</p>
+          ) : (
+            <div className="bg-superficie border border-linea rounded-xl overflow-x-auto">
+              <table className="w-full text-sm sm:text-base">
+                <thead className="bg-superficie-2">
+                  <tr>
+                    {COLUMNAS.map((c) => (
+                      <th
+                        key={c.titulo}
+                        scope="col"
+                        className={`px-3 py-2.5 font-condensada font-semibold text-tinta whitespace-nowrap ${c.derecha ? 'text-right' : 'text-left'}`}
+                      >
+                        {c.titulo}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {mediciones.map((m) => (
+                    <tr key={m.id} className="border-t border-linea text-tinta">
+                      <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">{m.fecha}</td>
+                      <td className="px-3 py-2.5 tabular-nums">{m.hora}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{valor(m.entradaBiofiltro)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{valor(m.salidaBiofiltro)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{valor(m.salidaBiochar)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{valor(m.remocionBiofiltro, '%')}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{valor(m.remocionBiochar, '%')}</td>
+                      <td
+                        className={`px-3 py-2.5 text-right tabular-nums font-semibold whitespace-nowrap ${
+                          bajoMinimo(m.remocionTotal) ? 'bg-ambar-claro text-ambar' : ''
+                        }`}
+                      >
+                        {valor(m.remocionTotal, '%')}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{m.operador || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </Pagina>
     </TurnoGuard>
   );
 }

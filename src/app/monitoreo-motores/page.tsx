@@ -1,9 +1,12 @@
 'use client';
 
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import BackgroundLayout from '@/components/BackgroundLayout';
 import TurnoGuard, { PRIVILEGED_ROLES } from '@/components/TurnoGuard';
+import Pagina from '@/components/ui/Pagina';
+import EncabezadoPagina from '@/components/ui/EncabezadoPagina';
+import Indicadores, { type Indicador } from '@/components/ui/Indicadores';
+import Panel from '@/components/ui/Panel';
+import Aviso from '@/components/ui/Aviso';
+import { claseBoton, claseCampo, claseEtiqueta } from '@/components/ui/estilos';
 import { useAuth } from '@/hooks/useAuth';
 import { useVoiceRecording } from '@/hooks/useVoiceRecording';
 import { useFormPersistence } from '@/hooks/useFormPersistence';
@@ -14,6 +17,10 @@ import { useState, useEffect } from 'react';
 // Margen sobre el tiempo real transcurrido para el horómetro: la lectura anterior
 // puede haberse digitado unos minutos después de tomarla.
 const TOLERANCIA_HORAS = 0.5;
+
+// Jenbacher 3 y 4 se ocultan temporalmente: no tienen registros de estado en
+// Airtable. Para mostrarlos de nuevo, quítelos de esta lista.
+const MOTORES_OCULTOS = ['Jenbacher 3', 'Jenbacher 4'];
 
 interface MotorConEstado {
   motor: Motor;
@@ -62,8 +69,74 @@ interface ResumenInicioTurno {
   motoresApagados: { nombre: string; modelo: string; serie: string }[];
 }
 
+/** Estado del motor de un vistazo: punto hoja y "Encendido", gris y "Apagado". */
+function EstadoEtiqueta({ estado }: { estado: string | undefined }) {
+  if (estado === 'Encendido') {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full bg-hoja-claro border border-hoja px-3 py-1 font-semibold text-bosque-oscuro">
+        <span className="w-3 h-3 rounded-full bg-hoja" aria-hidden="true" />
+        Encendido
+      </span>
+    );
+  }
+  if (estado === 'Apagado') {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full bg-superficie-2 border border-linea-fuerte px-3 py-1 font-semibold text-tinta-suave">
+        <span className="w-3 h-3 rounded-full bg-tinta-tenue" aria-hidden="true" />
+        Apagado
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full bg-ambar-claro border border-ambar-borde px-3 py-1 font-semibold text-ambar">
+      <span className="w-3 h-3 rounded-full bg-ambar-borde" aria-hidden="true" />
+      Sin estado
+    </span>
+  );
+}
+
+function Cargando({ texto }: { texto: string }) {
+  return (
+    <div className="flex items-center gap-3 py-12 justify-center text-tinta-suave" role="status">
+      <span className="w-6 h-6 rounded-full border-[3px] border-linea border-t-bosque animate-spin" aria-hidden="true" />
+      {texto}
+    </div>
+  );
+}
+
+function Girando() {
+  return <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" aria-hidden="true" />;
+}
+
+/** Marco de los modales: fondo oscurecido y caja blanca con título. */
+function Modal({ titulo, subtitulo, onCerrar, ancho = 'max-w-md', children }: {
+  titulo: string;
+  subtitulo?: React.ReactNode;
+  onCerrar: () => void;
+  ancho?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="absolute inset-0 bg-tinta/40" onClick={onCerrar} aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+        className={`relative bg-superficie rounded-xl border border-linea shadow-xl w-full ${ancho} max-h-[92vh] flex flex-col`}
+      >
+        <div className="px-5 sm:px-6 pt-5 pb-4 border-b border-linea">
+          <h2 className="font-condensada font-bold text-2xl text-tinta">{titulo}</h2>
+          {subtitulo && <p className="text-tinta-suave mt-0.5">{subtitulo}</p>}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function MonitoreoMotoresPage() {
-  const { user: loggedInUser, logout } = useAuth();
+  const { user: loggedInUser } = useAuth();
   const [motoresConEstado, setMotoresConEstado] = useState<MotorConEstado[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +203,7 @@ export default function MonitoreoMotoresPage() {
 
       // Para cada motor, obtener su último estado
       const motoresConEstadoData: MotorConEstado[] = [];
-      
+
       for (const motor of motores) {
         try {
           const ultimoEstado = await airtableService.obtenerUltimoEstadoMotor(motor.id);
@@ -150,7 +223,7 @@ export default function MonitoreoMotoresPage() {
       setMotoresConEstado(motoresConEstadoData);
     } catch (error) {
       console.error('Error al cargar datos de motores:', error);
-      setError('Error al cargar la información de los motores');
+      setError('No se pudo cargar la información de los motores. Revise la conexión e intente de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -199,16 +272,16 @@ export default function MonitoreoMotoresPage() {
 
     try {
       setProcesandoMotor(motorId);
-      
+
       // Crear el estado del motor junto con el protocolo de encendido
       await airtableService.crearEncendidoConProtocolo(
-        motorId, 
-        loggedInUser!.nombre, 
+        motorId,
+        loggedInUser!.nombre,
         protocoloData
       );
 
       // Mostrar mensaje de éxito con información sobre el siguiente paso
-      alert(`✅ ${nombreMotor} encendido exitosamente\n\n📊 A continuación debes registrar los datos iniciales del motor (Horómetro, Arranques, M³, kW)`);
+      alert(`${nombreMotor} quedó encendido.\n\nAhora registre la lectura inicial del motor: horómetro, arranques, m³ y kW.`);
 
       // Recargar datos para mostrar el cambio
       await cargarDatosMotores();
@@ -217,10 +290,10 @@ export default function MonitoreoMotoresPage() {
       setTimeout(() => {
         abrirModalMonitoreo(motorId, nombreMotor);
       }, 1000); // Dar tiempo para que el usuario lea el mensaje
-      
+
     } catch (error) {
       console.error('Error en el proceso de encendido:', error);
-      alert(`❌ Error en el proceso de encendido. Intenta nuevamente.`);
+      alert(`No se pudo registrar el encendido de ${nombreMotor}. Revise la conexión e intente de nuevo.`);
     } finally {
       setProcesandoMotor(null);
     }
@@ -249,11 +322,11 @@ export default function MonitoreoMotoresPage() {
 
     try {
       setProcesandoMotor(motorId);
-      
+
       // Usar la nueva función que actualiza el registro anterior y crea uno nuevo
       const resultado = await airtableService.registrarNuevoMonitoreo(
-        motorId, 
-        loggedInUser!.nombre, 
+        motorId,
+        loggedInUser!.nombre,
         datosMonitoreo as {
           'Horometro Inicial': number;
           'Arranques Inicio': number;
@@ -264,17 +337,17 @@ export default function MonitoreoMotoresPage() {
 
       // Mostrar mensaje de éxito detallado
       if (resultado.registroActualizado) {
-        alert(`✅ ${nombreMotor} - Datos registrados exitosamente:\n• Registro anterior actualizado con valores finales\n• Nuevo registro creado con valores iniciales`);
+        alert(`Lectura de ${nombreMotor} guardada.\n\nSe cerró la lectura anterior con estos valores y se abrió una nueva.`);
       } else {
-        alert(`✅ ${nombreMotor} - Primer registro de monitoreo creado exitosamente`);
+        alert(`Primera lectura de ${nombreMotor} guardada.`);
       }
 
       // Recargar datos para mostrar el cambio
       await cargarDatosMotores();
-      
+
     } catch (error) {
       console.error('Error al registrar datos del motor:', error);
-      alert(`❌ Error al registrar datos del motor. Intenta nuevamente.`);
+      alert(`No se pudo guardar la lectura de ${nombreMotor}. Revise la conexión e intente de nuevo.`);
     } finally {
       setProcesandoMotor(null);
     }
@@ -283,7 +356,7 @@ export default function MonitoreoMotoresPage() {
   const cambiarEstadoDirecto = async (motorId: string, nuevoEstado: 'Encendido' | 'Apagado', nombreMotor: string) => {
     try {
       setProcesandoMotor(motorId);
-      
+
       // Crear nuevo estado en Airtable
       await airtableService.crearEstadoMotor(
         motorId,
@@ -291,32 +364,23 @@ export default function MonitoreoMotoresPage() {
         loggedInUser!.nombre
       );
 
-      // Mostrar mensaje de éxito (también lo haré personalizado)
-      alert(`✅ ${nombreMotor} ${nuevoEstado.toLowerCase()} exitosamente`);
+      alert(`${nombreMotor} quedó ${nuevoEstado.toLowerCase()}.`);
 
       // Recargar datos para mostrar el cambio
       await cargarDatosMotores();
-      
+
     } catch (error) {
       console.error('Error al cambiar estado del motor:', error);
-      alert(`❌ Error al cambiar el estado del motor. Intenta nuevamente.`);
+      alert(`No se pudo cambiar el estado de ${nombreMotor}. Revise la conexión e intente de nuevo.`);
     } finally {
       setProcesandoMotor(null);
-    }
-  };
-
-  const getEstadoColor = (estado: string | undefined) => {
-    switch (estado) {
-      case 'Encendido': return { bg: 'bg-green-500', text: 'text-green-400', dot: 'bg-green-400' };
-      case 'Apagado': return { bg: 'bg-red-500', text: 'text-red-400', dot: 'bg-red-400' };
-      default: return { bg: 'bg-gray-500', text: 'text-gray-400', dot: 'bg-gray-400' };
     }
   };
 
   const formatearFecha = (fechaString: string | undefined) => {
     if (!fechaString) return 'Sin fecha';
     try {
-      return new Date(fechaString).toLocaleString('es-ES', {
+      return new Date(fechaString).toLocaleString('es-CO', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -332,82 +396,50 @@ export default function MonitoreoMotoresPage() {
   const ModalConfirmacion = () => {
     if (!modalConfirmacion.isOpen) return null;
 
-    const accion = modalConfirmacion.nuevoEstado === 'Encendido' ? 'ENCENDER' : 'APAGAR';
-    const emoji = modalConfirmacion.nuevoEstado === 'Encendido' ? '▶️' : '⏹️';
-    const colorBoton = modalConfirmacion.nuevoEstado === 'Encendido' ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500';
+    const encender = modalConfirmacion.nuevoEstado === 'Encendido';
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
-        <div 
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={modalConfirmacion.onCancel}
-        />
-        
-        {/* Modal */}
-        <div className="relative bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-lg rounded-2xl p-8 border border-slate-600/50 shadow-2xl max-w-md w-full mx-4 transform transition-all">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">{emoji}</span>
+      <Modal
+        titulo={encender ? '¿Encender el motor?' : '¿Apagar el motor?'}
+        subtitulo={encender ? 'Después de confirmar se abre el protocolo de encendido.' : 'Quedará registrado el apagado a su nombre.'}
+        onCerrar={modalConfirmacion.onCancel}
+      >
+        <div className="px-5 sm:px-6 py-5">
+          <dl className="bg-superficie-2 border border-linea rounded-lg divide-y divide-linea">
+            <div className="flex justify-between gap-4 px-4 py-2.5">
+              <dt className="text-tinta-suave">Motor</dt>
+              <dd className="font-semibold text-tinta text-right">{modalConfirmacion.nombreMotor}</dd>
             </div>
-            <h3 className="text-2xl font-bold text-white mb-2">
-              Confirmar Acción
-            </h3>
-            <p className="text-gray-300">
-              ¿Está seguro que desea {accion.toLowerCase()} este motor?
-            </p>
-          </div>
-
-          {/* Información del Motor */}
-          <div className="bg-gray-800/30 rounded-lg p-4 mb-6">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Motor:</span>
-                <span className="text-white font-medium">{modalConfirmacion.nombreMotor}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Acción:</span>
-                <span className={`font-bold ${modalConfirmacion.nuevoEstado === 'Encendido' ? 'text-green-400' : 'text-red-400'}`}>
-                  {accion}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Operador:</span>
-                <span className="text-white font-medium">{loggedInUser?.nombre}</span>
-              </div>
+            <div className="flex justify-between gap-4 px-4 py-2.5">
+              <dt className="text-tinta-suave">Acción</dt>
+              <dd className="font-semibold text-tinta">{encender ? 'Encender' : 'Apagar'}</dd>
             </div>
-          </div>
-
-          {/* Botones */}
-          <div className="flex space-x-4">
-            <button
-              onClick={modalConfirmacion.onCancel}
-              className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-all duration-300 transform hover:scale-105"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={modalConfirmacion.onConfirm}
-              className={`flex-1 px-6 py-3 ${colorBoton} text-white rounded-lg font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2`}
-            >
-              <span>{emoji}</span>
-              <span>Confirmar</span>
-            </button>
-          </div>
+            <div className="flex justify-between gap-4 px-4 py-2.5">
+              <dt className="text-tinta-suave">Operador</dt>
+              <dd className="font-semibold text-tinta text-right">{loggedInUser?.nombre}</dd>
+            </div>
+          </dl>
         </div>
-      </div>
+        <div className="px-5 sm:px-6 py-4 border-t border-linea flex flex-col-reverse sm:flex-row gap-3">
+          <button type="button" onClick={modalConfirmacion.onCancel} className={`${claseBoton('secundario', 'lg')} flex-1`}>
+            Cancelar
+          </button>
+          <button type="button" onClick={modalConfirmacion.onConfirm} className={`${claseBoton('primario', 'lg')} flex-1`}>
+            {encender ? 'Sí, encender' : 'Sí, apagar'}
+          </button>
+        </div>
+      </Modal>
     );
   };
 
   // Componente Modal de Protocolo de Encendido
   const ModalProtocolo = () => {
-    const { 
-      isRecording, 
-      isTranscribing, 
-      startRecording, 
-      stopRecording, 
-      error: recordingError 
+    const {
+      isRecording,
+      isTranscribing,
+      startRecording,
+      stopRecording,
+      error: recordingError
     } = useVoiceRecording();
 
     const initialFormData = {
@@ -455,7 +487,7 @@ export default function MonitoreoMotoresPage() {
         try {
           const transcription = await stopRecording();
           const currentObservations = formData['Observaciones generales'];
-          const newObservations = currentObservations 
+          const newObservations = currentObservations
             ? `${currentObservations}\n${transcription}`
             : transcription;
           handleChange('Observaciones generales', newObservations);
@@ -469,207 +501,186 @@ export default function MonitoreoMotoresPage() {
 
     const protocoloGroups = [
       {
-        title: "🛡️ Seguridad",
+        title: 'Seguridad',
         fields: [
           { key: 'Elementos de Protección Personal disponibles', label: 'EPP disponibles' },
           { key: 'Elementos de Protección Personal en buen estado', label: 'EPP en buen estado' }
         ]
       },
       {
-        title: "🔧 Niveles",
+        title: 'Niveles',
         fields: [
-          { key: 'Aceite al 50% (mirilla)', label: 'Aceite al 50%' },
-          { key: 'Presión refrigerante 1.5 bar', label: 'Presión refrigerante 1.5 bar' }
+          { key: 'Aceite al 50% (mirilla)', label: 'Aceite al 50 % (mirilla)' },
+          { key: 'Presión refrigerante 1.5 bar', label: 'Presión del refrigerante 1,5 bar' }
         ]
       },
       {
-        title: "🌬️ Gases", 
+        title: 'Gases',
         fields: [
-          { key: 'CH4 > 50%', label: 'CH4 > 50%' },
-          { key: 'O2 < 3%', label: 'O2 < 3%' },
-          { key: 'H2S < 300ppm', label: 'H2S < 300ppm' }
+          { key: 'CH4 > 50%', label: 'CH4 mayor a 50 %' },
+          { key: 'O2 < 3%', label: 'O2 menor a 3 %' },
+          { key: 'H2S < 300ppm', label: 'H2S menor a 300 ppm' }
         ]
       },
       {
-        title: "🔩 Mecánica",
+        title: 'Mecánica',
         fields: [
-          { key: 'Mangueras en buen estado', label: 'Mangueras OK' },
-          { key: 'Válvulas de gas abiertas', label: 'Válvulas abiertas' },
-          { key: 'Ventiladores encendidos', label: 'Ventiladores OK' }
+          { key: 'Mangueras en buen estado', label: 'Mangueras en buen estado' },
+          { key: 'Válvulas de gas abiertas', label: 'Válvulas de gas abiertas' },
+          { key: 'Ventiladores encendidos', label: 'Ventiladores encendidos' }
         ]
       },
       {
-        title: "⚙️ Equipos",
+        title: 'Equipos',
         fields: [
-          { key: 'Equipos Biofiltro funcionando', label: 'Biofiltro OK' },
-          { key: 'Encendido correcto', label: 'Secuencia encendido' },
+          { key: 'Equipos Biofiltro funcionando', label: 'Equipos del biofiltro funcionando' },
+          { key: 'Encendido correcto', label: 'Secuencia de encendido correcta' },
           { key: 'Planilla actualizada', label: 'Planilla actualizada' }
         ]
       },
       {
-        title: "📊 Operación",
+        title: 'Operación',
         fields: [
-          { key: 'Temperatura refrigerante 80-90°C', label: 'Temp. 80-90°C' },
-          { key: 'Presión aceite 3.5 bar', label: 'Presión aceite 3.5 bar' },
-          { key: 'Carga trabajo < 1000kW', label: 'Carga < 1000kW' },
-          { key: 'Horómetro inicial registrado', label: 'Horómetro registrado' },
-          { key: 'Composición de biogás controlada', label: 'Biogás controlado' },
-          { key: 'Lavado de radiador (si aplica)', label: 'Radiador lavado (si aplica)' }
+          { key: 'Temperatura refrigerante 80-90°C', label: 'Temperatura del refrigerante 80–90 °C' },
+          { key: 'Presión aceite 3.5 bar', label: 'Presión del aceite 3,5 bar' },
+          { key: 'Carga trabajo < 1000kW', label: 'Carga de trabajo menor a 1000 kW' },
+          { key: 'Horómetro inicial registrado', label: 'Horómetro inicial registrado' },
+          { key: 'Composición de biogás controlada', label: 'Composición del biogás controlada' },
+          { key: 'Lavado de radiador (si aplica)', label: 'Lavado del radiador (si aplica)' }
         ]
       }
     ];
 
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
-        <div 
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={modalProtocolo.onCancel}
-        />
-        
-        {/* Modal */}
-        <div className="relative bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-lg rounded-2xl p-6 border border-slate-600/50 shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">📋</span>
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">
-              Protocolo de Encendido
-            </h3>
-            <p className="text-gray-300">
-              Motor: {modalProtocolo.nombreMotor}
-            </p>
-          </div>
+    const totalPuntos = protocoloGroups.reduce((n, g) => n + g.fields.length, 0);
+    const respondidos = protocoloGroups.reduce(
+      (n, g) => n + g.fields.filter((f) => formData[f.key as keyof typeof formData] !== '').length,
+      0
+    );
 
-          {/* Formulario */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="max-h-[50vh] overflow-y-auto space-y-6 pr-2">
-              {protocoloGroups.map((group) => (
-                <div key={group.title} className="bg-gray-800/30 rounded-lg p-4">
-                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
-                    {group.title}
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {group.fields.map((field) => (
-                      <div key={field.key} className="space-y-2">
-                        <label className="block text-gray-300 text-sm font-medium">
-                          {field.label}
-                        </label>
-                        <div className="flex space-x-2">
+    const opcion = (activo: boolean, tipo: 'si' | 'no') =>
+      `flex-1 min-h-11 px-3 rounded-lg border-2 font-semibold transition-colors ${
+        activo
+          ? tipo === 'si'
+            ? 'bg-bosque border-bosque text-white'
+            : 'bg-rojo-claro border-rojo text-rojo'
+          : 'bg-superficie border-linea-fuerte text-tinta hover:border-bosque'
+      }`;
+
+    return (
+      <Modal
+        titulo="Protocolo de encendido"
+        subtitulo={<>Motor <span className="font-semibold text-tinta">{modalProtocolo.nombreMotor}</span>. Marque cada punto antes de encender.</>}
+        onCerrar={modalProtocolo.onCancel}
+        ancho="max-w-4xl"
+      >
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
+          <div className="overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
+            {protocoloGroups.map((group) => (
+              <fieldset key={group.title} className="border-t border-linea pt-4 first:border-t-0 first:pt-0">
+                <legend className="font-condensada font-bold text-lg text-tinta float-left w-full mb-3">{group.title}</legend>
+                <div className="clear-both grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                  {group.fields.map((field) => {
+                    const valorCampo = formData[field.key as keyof typeof formData];
+                    return (
+                      <div key={field.key}>
+                        <p className="text-sm font-semibold text-tinta-suave mb-1.5">{field.label}</p>
+                        <div className="flex gap-2" role="group" aria-label={field.label}>
                           <button
                             type="button"
+                            aria-pressed={valorCampo === 'Sí'}
                             onClick={() => handleChange(field.key, 'Sí')}
-                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                              formData[field.key as keyof typeof formData] === 'Sí'
-                                ? 'bg-green-600 text-white border-2 border-green-400'
-                                : 'bg-gray-700 text-gray-300 border-2 border-gray-600 hover:border-green-400'
-                            }`}
+                            className={opcion(valorCampo === 'Sí', 'si')}
                           >
-                            ✅ Sí
+                            Sí
                           </button>
                           <button
                             type="button"
+                            aria-pressed={valorCampo === 'No'}
                             onClick={() => handleChange(field.key, 'No')}
-                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                              formData[field.key as keyof typeof formData] === 'No'
-                                ? 'bg-red-600 text-white border-2 border-red-400'
-                                : 'bg-gray-700 text-gray-300 border-2 border-gray-600 hover:border-red-400'
-                            }`}
+                            className={opcion(valorCampo === 'No', 'no')}
                           >
-                            ❌ No
+                            No
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              ))}
-              
-              {/* Observaciones */}
-              <div className="bg-gray-800/30 rounded-lg p-4">
-                <label className="block text-white text-sm font-medium mb-2">
-                  Observaciones generales
-                </label>
-                <div className="relative">
-                  <textarea
-                    value={formData['Observaciones generales']}
-                    onChange={(e) => handleChange('Observaciones generales', e.target.value)}
-                    className="w-full px-3 py-2 pr-12 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                    rows={3}
-                    placeholder="Ingrese observaciones adicionales..."
-                    disabled={isRecording || isTranscribing}
-                  />
-                  
-                  {/* Botón de Micrófono */}
-                  <button
-                    type="button"
-                    onClick={handleVoiceRecording}
-                    disabled={isTranscribing}
-                    className={`absolute top-2 right-2 p-2 rounded-lg transition-all duration-300 ${
-                      isRecording 
-                        ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
-                        : 'bg-blue-500 hover:bg-blue-600'
-                    } ${isTranscribing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={isRecording ? 'Detener grabación' : 'Iniciar grabación de voz'}
-                  >
-                    {isTranscribing ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <span className="text-white text-sm">
-                        {isRecording ? '🔴' : '🎤'}
-                      </span>
-                    )}
-                  </button>
-                </div>
-                
-                {/* Estado de la grabación */}
-                {(isRecording || isTranscribing) && (
-                  <div className="mt-2 text-sm">
-                    {isRecording && (
-                      <p className="text-red-400 flex items-center">
-                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse mr-2"></span>
-                        Grabando... Presiona el micrófono nuevamente para detener
-                      </p>
-                    )}
-                    {isTranscribing && (
-                      <p className="text-blue-400 flex items-center">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse mr-2"></span>
-                        Transcribiendo audio...
-                      </p>
-                    )}
-                  </div>
-                )}
-                
-                {/* Error de grabación */}
-                {recordingError && (
-                  <div className="mt-2 text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-2">
-                    {recordingError}
-                  </div>
-                )}
-              </div>
-            </div>
+              </fieldset>
+            ))}
 
-            {/* Botones */}
-            <div className="flex space-x-4 pt-4">
-              <button
-                type="button"
-                onClick={modalProtocolo.onCancel}
-                className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-all duration-300"
-              >
+            {/* Observaciones */}
+            <div className="border-t border-linea pt-4">
+              <label htmlFor="protocolo-observaciones" className="font-condensada font-bold text-lg text-tinta">
+                Observaciones generales
+              </label>
+              <p className="text-sm text-tinta-suave mb-2">Escriba o toque el micrófono para dictar; lo dictado se agrega al final.</p>
+              <div className="flex items-start gap-3">
+                <textarea
+                  id="protocolo-observaciones"
+                  value={formData['Observaciones generales']}
+                  onChange={(e) => handleChange('Observaciones generales', e.target.value)}
+                  className={`${claseCampo} resize-none`}
+                  rows={3}
+                  placeholder="Novedades del encendido, si las hay"
+                  disabled={isRecording || isTranscribing}
+                />
+                <button
+                  type="button"
+                  onClick={handleVoiceRecording}
+                  disabled={isTranscribing}
+                  aria-label={isRecording ? 'Detener y transcribir' : 'Dictar por voz'}
+                  title={isRecording ? 'Detener y transcribir' : 'Dictar por voz'}
+                  className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bosque ${
+                    isRecording
+                      ? 'bg-rojo hover:bg-[#912018] ring-4 ring-rojo/25 animate-pulse'
+                      : isTranscribing
+                        ? 'bg-ambar-borde cursor-wait'
+                        : 'bg-bosque hover:bg-bosque-oscuro'
+                  }`}
+                >
+                  {isTranscribing ? (
+                    <Girando />
+                  ) : isRecording ? (
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+
+              {(isRecording || isTranscribing) && (
+                <p role="status" className={`mt-2 text-sm font-semibold flex items-center gap-2 ${isRecording ? 'text-rojo' : 'text-ambar'}`}>
+                  <span className={`w-2 h-2 rounded-full animate-pulse ${isRecording ? 'bg-rojo' : 'bg-ambar-borde'}`} aria-hidden="true" />
+                  {isRecording ? 'Grabando. Toque el micrófono otra vez para detener.' : 'Transcribiendo el audio…'}
+                </p>
+              )}
+
+              {recordingError && (
+                <Aviso tono="error" className="mt-2 text-sm">{recordingError}</Aviso>
+              )}
+            </div>
+          </div>
+
+          <div className="px-5 sm:px-6 py-4 border-t border-linea flex flex-col sm:flex-row sm:items-center gap-3">
+            <p className="text-sm text-tinta-suave sm:mr-auto tabular-nums">
+              Respondidos <span className="font-semibold text-tinta">{respondidos} de {totalPuntos}</span>
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3">
+              <button type="button" onClick={modalProtocolo.onCancel} className={claseBoton('secundario', 'lg')}>
                 Cancelar
               </button>
-              <button
-                type="submit"
-                className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2"
-              >
-                <span>▶️</span>
-                <span>Encender Motor</span>
+              <button type="submit" className={claseBoton('primario', 'lg')}>
+                Encender motor
               </button>
             </div>
-          </form>
-        </div>
-      </div>
+          </div>
+        </form>
+      </Modal>
     );
   };
 
@@ -731,40 +742,24 @@ export default function MonitoreoMotoresPage() {
       setDatosMonitoreo(prev => ({ ...prev, [field]: value }));
     };
 
+    // Valor anterior de cada contador, para que el operador compare al digitar.
+    const anterior = ultimoRegistro ? lecturasDeMonitoreo(ultimoRegistro.fields).inicio : null;
     const campos = [
-      { key: 'Horometro Inicial', label: 'Horómetro Inicial', unit: 'hrs', placeholder: 'Ej: 1250.5' },
-      { key: 'Arranques Inicio', label: 'Arranques Inicio', unit: 'arranques', placeholder: 'Ej: 150' },
-      { key: 'M3 de Inicio', label: 'M³ de Inicio', unit: 'm³', placeholder: 'Ej: 2500.25' },
-      { key: 'Kw de Inicio', label: 'kW de Inicio', unit: 'kW', placeholder: 'Ej: 850.75' }
+      { key: 'Horometro Inicial', label: 'Horómetro', unit: 'h', previo: anterior?.horometro },
+      { key: 'Arranques Inicio', label: 'Arranques', unit: '', previo: anterior?.arranques },
+      { key: 'M3 de Inicio', label: 'Gas consumido', unit: 'm³', previo: anterior?.m3 },
+      { key: 'Kw de Inicio', label: 'Energía', unit: 'kW', previo: anterior?.energia }
     ];
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div 
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={modalMonitoreo.onCancel}
-        />
-        
-        <div className="relative bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-lg rounded-2xl p-6 border border-slate-600/50 shadow-2xl max-w-2xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">📊</span>
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">
-              Registro de Datos del Motor
-            </h3>
-            <p className="text-gray-300 mb-2">
-              Motor: <span className="text-blue-400 font-semibold">{modalMonitoreo.nombreMotor}</span>
-            </p>
-            <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-3 text-sm text-blue-300">
-              <p className="flex items-center justify-center gap-2">
-                <span>ℹ️</span>
-                <span>Completa los datos iniciales del motor después del encendido</span>
-              </p>
-            </div>
-          </div>
-
-          {revision && ultimoRegistro ? (
+      <Modal
+        titulo="Lectura de contadores"
+        subtitulo={<>Motor <span className="font-semibold text-tinta">{modalMonitoreo.nombreMotor}</span>. Digite lo que marcan ahora los contadores.</>}
+        onCerrar={modalMonitoreo.onCancel}
+        ancho="max-w-2xl"
+      >
+        {revision && ultimoRegistro ? (
+          <div className="overflow-y-auto px-5 sm:px-6 py-5">
             <RevisionMonitoreo
               revision={revision}
               ultimoRegistro={ultimoRegistro}
@@ -772,55 +767,57 @@ export default function MonitoreoMotoresPage() {
               onCorregir={() => setModalMonitoreo(prev => ({ ...prev, revision: null }))}
               onGuardar={() => guardar(revision.datos)}
             />
-          ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {campos.map((campo) => (
-                <div key={campo.key} className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
-                  <label className="block text-white text-sm font-medium mb-2 flex items-center gap-2">
-                    <span className="text-blue-400">
-                      {campo.key === 'Horometro Inicial' && '⏰'}
-                      {campo.key === 'Arranques Inicio' && '🔄'}
-                      {campo.key === 'M3 de Inicio' && '📦'}
-                      {campo.key === 'Kw de Inicio' && '⚡'}
-                    </span>
-                    {campo.label} ({campo.unit})
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={datosMonitoreo[campo.key as keyof typeof datosMonitoreo]}
-                    onChange={(e) => handleChange(campo.key, e.target.value)}
-                    placeholder={campo.placeholder}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    required
-                  />
-                </div>
-              ))}
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
+            <div className="overflow-y-auto px-5 sm:px-6 py-5 space-y-4">
+              {ultimoRegistro !== null && (
+                <p className="text-sm text-tinta-suave">Antes de guardar, la lectura se compara con la anterior para descartar errores de digitación.</p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {campos.map((campo) => (
+                  <div key={campo.key}>
+                    <label htmlFor={`lectura-${campo.key}`} className={claseEtiqueta}>
+                      {campo.label}{campo.unit && ` (${campo.unit})`}
+                    </label>
+                    <input
+                      id={`lectura-${campo.key}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      value={datosMonitoreo[campo.key as keyof typeof datosMonitoreo]}
+                      onChange={(e) => handleChange(campo.key, e.target.value)}
+                      className={`${claseCampo} text-lg font-semibold tabular-nums`}
+                      required
+                    />
+                    <p className="mt-1 text-sm text-tinta-suave tabular-nums">
+                      {ultimoRegistro === undefined
+                        ? 'Buscando lectura anterior…'
+                        : campo.previo !== null && campo.previo !== undefined
+                          ? `Anterior: ${campo.previo.toLocaleString('es-CO', { maximumFractionDigits: 2 })}${campo.unit ? ` ${campo.unit}` : ''}`
+                          : 'Sin lectura anterior'}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="flex space-x-4 pt-4 sticky bottom-0 bg-gradient-to-t from-slate-900 to-transparent pt-6 -mx-6 px-6 pb-2">
-              <button
-                type="button"
-                onClick={modalMonitoreo.onCancel}
-                className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-all duration-300"
-              >
+            <div className="px-5 sm:px-6 py-4 border-t border-linea flex flex-col-reverse sm:flex-row gap-3">
+              <button type="button" onClick={modalMonitoreo.onCancel} className={`${claseBoton('secundario', 'lg')} flex-1`}>
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={ultimoRegistro === undefined}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 disabled:opacity-50 disabled:cursor-wait text-white rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                className={`${claseBoton('primario', 'lg')} flex-1 disabled:cursor-wait`}
               >
-                <span>📊</span>
-                <span>{ultimoRegistro === undefined ? 'Cargando lectura anterior…' : 'Completar Registro'}</span>
+                {ultimoRegistro === undefined ? 'Cargando lectura anterior…' : ultimoRegistro ? 'Revisar lectura' : 'Guardar lectura'}
               </button>
             </div>
           </form>
-          )}
-        </div>
-      </div>
+        )}
+      </Modal>
     );
   };
 
@@ -850,65 +847,51 @@ export default function MonitoreoMotoresPage() {
 
     return (
       <div className="space-y-5">
-        <div className={`rounded-lg p-4 border text-sm ${bloqueado
-          ? 'bg-red-500/10 border-red-400/40 text-red-200'
-          : 'bg-blue-500/10 border-blue-400/30 text-blue-200'}`}>
-          <p className="font-semibold mb-1">
-            {bloqueado ? '⛔ Revisa la lectura antes de guardar' : '✅ Confirma lo que vas a registrar'}
-          </p>
-          <p>
-            Desde la lectura anterior ({fechaAnterior}
-            {ultimoRegistro.fields['Realiza Registro'] ? `, ${ultimoRegistro.fields['Realiza Registro']}` : ''}
-            {revision.horasTranscurridas !== null ? `, hace ${fmt(revision.horasTranscurridas)} h` : ''}):
-          </p>
-        </div>
+        <Aviso
+          tono={bloqueado ? 'error' : 'info'}
+          titulo={bloqueado ? 'Revise la lectura antes de guardar' : 'Confirme lo que va a registrar'}
+        >
+          Diferencia desde la lectura anterior ({fechaAnterior}
+          {ultimoRegistro.fields['Realiza Registro'] ? `, ${ultimoRegistro.fields['Realiza Registro']}` : ''}
+          {revision.horasTranscurridas !== null ? `, hace ${fmt(revision.horasTranscurridas)} h` : ''}):
+        </Aviso>
 
-        <div className="space-y-2">
+        <ul className="border border-linea rounded-lg divide-y divide-linea overflow-hidden">
           {revision.deltas.map(d => (
-            <div key={d.etiqueta} className={`rounded-lg p-3 border ${d.problema
-              ? 'bg-red-500/10 border-red-400/40'
-              : 'bg-gray-800/30 border-gray-700/50'}`}>
+            <li key={d.etiqueta} className={`px-4 py-3 ${d.problema ? 'bg-rojo-claro' : 'bg-superficie'}`}>
               <div className="flex justify-between items-baseline gap-4">
-                <span className="text-gray-300 capitalize">{d.etiqueta}</span>
-                <span className={`font-semibold ${d.problema ? 'text-red-300' : 'text-white'}`}>
+                <span className={`first-letter:uppercase ${d.problema ? 'text-rojo font-semibold' : 'text-tinta-suave'}`}>{d.etiqueta}</span>
+                <span className={`font-condensada font-bold text-xl tabular-nums ${d.problema ? 'text-rojo' : 'text-tinta'}`}>
                   {fmt(d.valor, d.etiqueta === 'arranques' ? 0 : 2)} {d.unidad}
                 </span>
               </div>
               {d.problema === 'negativo' && (
-                <p className="text-xs text-red-300 mt-1">
+                <p className="text-sm text-rojo mt-1">
                   El contador no puede retroceder: la lectura anterior fue {fmt(valorAnterior[d.etiqueta], 2)}.
                 </p>
               )}
               {d.problema === 'excesivo' && (
-                <p className="text-xs text-red-300 mt-1">
+                <p className="text-sm text-rojo mt-1">
                   Supera el máximo posible ({fmt(d.maximo)} {d.unidad}) para el tiempo transcurrido.
                   La lectura anterior fue {fmt(valorAnterior[d.etiqueta], 2)}.
                 </p>
               )}
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
 
         {bloqueado && (
-          <p className="text-xs text-gray-400">
-            Si el contador se cambió o la lectura anterior quedó mal digitada, avisa a la jefatura de planta.
+          <p className="text-sm text-tinta-suave">
+            Si el contador se cambió o la lectura anterior quedó mal digitada, avise a la jefatura de planta.
           </p>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          <button
-            type="button"
-            onClick={onCorregir}
-            className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-lg font-medium transition-all duration-300"
-          >
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-1">
+          <button type="button" onClick={onCorregir} className={`${claseBoton('secundario', 'lg')} flex-1`}>
             Corregir
           </button>
           {!bloqueado && (
-            <button
-              type="button"
-              onClick={onGuardar}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white rounded-lg font-medium transition-all duration-300 shadow-lg"
-            >
+            <button type="button" onClick={onGuardar} className={`${claseBoton('primario', 'lg')} flex-1`}>
               Confirmar y guardar
             </button>
           )}
@@ -916,7 +899,7 @@ export default function MonitoreoMotoresPage() {
             <button
               type="button"
               onClick={onGuardar}
-              className="flex-1 px-6 py-3 border border-red-400/60 text-red-200 hover:bg-red-500/20 rounded-lg font-medium transition-all duration-300"
+              className={`${claseBoton('secundario', 'lg')} flex-1 text-rojo border-rojo-borde hover:bg-rojo-claro`}
             >
               Guardar de todas formas
             </button>
@@ -929,407 +912,253 @@ export default function MonitoreoMotoresPage() {
   if (!loggedInUser) {
     return (
       <TurnoGuard>
-        <BackgroundLayout>
-          <div className="min-h-screen flex items-center justify-center px-4">
-            <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-2xl p-6 sm:p-8 border border-white/20 max-w-md w-full">
-              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold mb-3">Acceso Requerido</h1>
-              <p className="text-gray-300 mb-6 text-sm sm:text-base">Debes iniciar sesión para acceder al monitoreo de motores.</p>
-              <button
-                onClick={() => window.location.href = '/'}
-                className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center space-x-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
-                <span>Iniciar Sesión</span>
-              </button>
-            </div>
-          </div>
-        </BackgroundLayout>
+        <Pagina>
+          <Panel titulo="Inicie sesión" descripcion="Para ver y operar los motores necesita iniciar sesión." className="max-w-md mx-auto">
+            <button type="button" onClick={() => window.location.href = '/'} className={`${claseBoton('primario', 'lg')} w-full`}>
+              Ir a iniciar sesión
+            </button>
+          </Panel>
+        </Pagina>
       </TurnoGuard>
     );
   }
+
+  const encabezado = (
+    <EncabezadoPagina
+      titulo="Monitoreo de motores"
+      descripcion="Estado de cada motor Jenbacher, encendido y apagado con su protocolo, y lectura de contadores."
+    >
+      <span>
+        Operador: <span className="font-semibold text-tinta">{loggedInUser.nombre}</span>
+      </span>
+    </EncabezadoPagina>
+  );
 
   if (loading) {
     return (
       <TurnoGuard>
-        <BackgroundLayout>
-          <div className="min-h-screen flex flex-col">
-            <Navbar 
-              onLoginClick={() => {}} 
-              loggedInUser={loggedInUser}
-              onLogout={logout}
-            />
-          
-          <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400 mx-auto mb-4"></div>
-              <p className="text-white text-lg">Cargando información de motores...</p>
-            </div>
-          </main>
-          </div>
-        </BackgroundLayout>
+        <Pagina>
+          {encabezado}
+          <Cargando texto="Cargando el estado de los motores…" />
+        </Pagina>
       </TurnoGuard>
     );
   }
 
+  const motoresVisibles = motoresConEstado.filter(
+    (m) => !MOTORES_OCULTOS.includes(m.motor.fields['Nombre Motor'])
+  );
+  const encendidos = motoresVisibles.filter((m) => m.ultimoEstado?.fields['Estado Motor'] === 'Encendido');
+  const apagados = motoresVisibles.filter((m) => m.ultimoEstado?.fields['Estado Motor'] === 'Apagado');
+  const sinEstado = motoresVisibles.filter((m) => !m.ultimoEstado);
+  const ultimoCambio = motoresVisibles
+    .filter((m) => m.ultimoEstado?.fields['Fecha y Hora'])
+    .sort(
+      (a, b) =>
+        new Date(b.ultimoEstado!.fields['Fecha y Hora']).getTime() - new Date(a.ultimoEstado!.fields['Fecha y Hora']).getTime()
+    )[0];
+
+  const indicadores: Indicador[] = [
+    {
+      etiqueta: 'Encendidos',
+      valor: encendidos.length,
+      unidad: `de ${motoresVisibles.length}`,
+      detalle: encendidos.length > 0 ? encendidos.map((m) => m.motor.fields['Nombre Motor']).join(', ') : 'Ningún motor en marcha',
+      tono: motoresVisibles.length > 0 && encendidos.length === 0 ? 'alerta' : 'neutro'
+    },
+    {
+      etiqueta: 'Apagados',
+      valor: apagados.length,
+      detalle: apagados.length > 0 ? apagados.map((m) => m.motor.fields['Nombre Motor']).join(', ') : 'Ninguno'
+    },
+    {
+      etiqueta: 'Último cambio de estado',
+      valor: ultimoCambio
+        ? new Date(ultimoCambio.ultimoEstado!.fields['Fecha y Hora']).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+        : '—',
+      detalle: ultimoCambio
+        ? `${ultimoCambio.motor.fields['Nombre Motor']} ${ultimoCambio.ultimoEstado!.fields['Estado Motor'].toLowerCase()}, ${new Date(
+            ultimoCambio.ultimoEstado!.fields['Fecha y Hora']
+          ).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}${
+            ultimoCambio.ultimoEstado!.fields['Realiza Registro'] ? ` · ${ultimoCambio.ultimoEstado!.fields['Realiza Registro']}` : ''
+          }`
+        : 'Sin registros de estado'
+    }
+  ];
+  if (sinEstado.length > 0) {
+    indicadores.push({
+      etiqueta: 'Sin estado registrado',
+      valor: sinEstado.length,
+      detalle: sinEstado.map((m) => m.motor.fields['Nombre Motor']).join(', '),
+      tono: 'alerta'
+    });
+  }
+
   return (
     <TurnoGuard>
-      <BackgroundLayout>
-        <div className="min-h-screen flex flex-col">
-          <Navbar 
-            onLoginClick={() => {}} 
-            loggedInUser={loggedInUser}
-            onLogout={logout}
-          />
-        
-        <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
-          <div className="max-w-7xl mx-auto py-12">
-            
-            {/* Banner de Inicio de Turno */}
-            {mostrarBannerTurno && resumenInicioTurno && (
-              <div className="mb-8 bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 border border-green-400/40 rounded-2xl p-6 relative overflow-hidden">
-                {/* Fondo decorativo */}
-                <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-emerald-500/5"></div>
-                
-                <div className="relative">
-                  {/* Header del banner */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-green-500/30 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-green-400">¡Turno Iniciado!</h3>
-                        <p className="text-green-300 text-sm">
-                          {new Date(resumenInicioTurno.fechaTurno).toLocaleString('es-CO', {
-                            weekday: 'short',
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setMostrarBannerTurno(false)}
-                      className="text-gray-400 hover:text-white transition-colors p-1"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  
-                  {/* Resumen de motores */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Motores encendidos */}
-                    <div className="bg-green-500/10 rounded-xl p-4 border border-green-400/20">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                        <span className="text-green-300 font-medium text-sm">Motores Encendidos ({resumenInicioTurno.motoresEncendidos.length})</span>
-                      </div>
-                      {resumenInicioTurno.motoresEncendidos.length > 0 ? (
-                        <ul className="space-y-1">
-                          {resumenInicioTurno.motoresEncendidos.map((m, i) => (
-                            <li key={i} className="text-white text-sm">• {m.nombre} - {m.modelo}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-gray-400 text-sm italic">Ninguno</p>
-                      )}
-                    </div>
-                    
-                    {/* Motores apagados */}
-                    <div className="bg-red-500/10 rounded-xl p-4 border border-red-400/20">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="w-2 h-2 bg-red-400 rounded-full"></span>
-                        <span className="text-red-300 font-medium text-sm">Motores Apagados ({resumenInicioTurno.motoresApagados.length})</span>
-                      </div>
-                      {resumenInicioTurno.motoresApagados.length > 0 ? (
-                        <ul className="space-y-1">
-                          {resumenInicioTurno.motoresApagados.map((m, i) => (
-                            <li key={i} className="text-white text-sm">• {m.nombre} - {m.modelo}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-gray-400 text-sm italic">Ninguno</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <p className="text-gray-300 text-xs mt-4 text-center">
-                    💡 Este es el estado de los motores al momento de recibir el turno
+      <Pagina>
+        {encabezado}
+
+        {/* Resumen al recibir el turno */}
+        {mostrarBannerTurno && resumenInicioTurno && (
+          <Panel
+            titulo="Turno recibido"
+            descripcion={`Estado de los motores al recibir el turno, ${new Date(resumenInicioTurno.fechaTurno).toLocaleString('es-CO', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}.`}
+            acciones={
+              <button type="button" onClick={() => setMostrarBannerTurno(false)} className={claseBoton('sutil', 'sm')}>
+                Ocultar
+              </button>
+            }
+            className="border-l-4 border-l-hoja"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {([
+                ['Encendidos', resumenInicioTurno.motoresEncendidos, 'bg-hoja'],
+                ['Apagados', resumenInicioTurno.motoresApagados, 'bg-tinta-tenue']
+              ] as const).map(([titulo, lista, punto]) => (
+                <div key={titulo} className="bg-superficie-2 border border-linea rounded-lg p-4">
+                  <p className="flex items-center gap-2 font-semibold text-tinta">
+                    <span className={`w-2.5 h-2.5 rounded-full ${punto}`} aria-hidden="true" />
+                    {titulo} ({lista.length})
                   </p>
+                  {lista.length > 0 ? (
+                    <ul className="mt-2 space-y-1 text-tinta">
+                      {lista.map((m, i) => (
+                        <li key={i}>
+                          {m.nombre} <span className="text-tinta-suave">· {m.modelo}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-tinta-suave">Ninguno</p>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {/* Header */}
-            <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold text-white mb-4">
-                <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                  Monitoreo de Motores
-                </span>
-              </h1>
-              <p className="text-gray-300 text-lg max-w-2xl mx-auto">
-                Supervisión en tiempo real del estado operativo de los motores Jenbacher
-              </p>
+              ))}
             </div>
+          </Panel>
+        )}
 
-            {/* Error Message */}
-            {error && (
-              <div className="mb-8 bg-red-500/20 border border-red-400/30 rounded-xl p-6 text-center">
-                <p className="text-red-400 mb-4">{error}</p>
-                <button
-                  onClick={cargarDatosMotores}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
-                >
-                  Reintentar
-                </button>
-              </div>
-            )}
+        {error ? (
+          <Aviso tono="error" titulo="No se pudieron cargar los motores">
+            <p>{error}</p>
+            <button type="button" onClick={cargarDatosMotores} className={`${claseBoton('secundario', 'sm')} mt-3`}>
+              Reintentar
+            </button>
+          </Aviso>
+        ) : (
+          motoresVisibles.length > 0 && <Indicadores items={indicadores} />
+        )}
 
-            {/* Resumen de Estado */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 max-w-4xl mx-auto">
-              <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl p-6 border border-slate-600/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-400 text-sm">Total Motores</p>
-                    <p className="text-3xl font-bold text-white">
-                      {motoresConEstado.filter(m => {
-                        const nombreMotor = m.motor.fields['Nombre Motor'];
-                        return nombreMotor !== 'Jenbacher 3' && nombreMotor !== 'Jenbacher 4';
-                      }).length}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                    <span className="text-2xl">⚙️</span>
-                  </div>
+        {/* Estado detallado de cada motor */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {motoresVisibles.map((motorData, index) => {
+            const { motor, ultimoEstado } = motorData;
+            const estado = ultimoEstado?.fields['Estado Motor'];
+            const nombre = motor.fields['Nombre Motor'] || `Motor ${index + 1}`;
+            const procesando = procesandoMotor === motor.id;
+            const franja =
+              estado === 'Encendido' ? 'border-l-hoja' : estado === 'Apagado' ? 'border-l-linea-fuerte' : 'border-l-ambar-borde';
+
+            return (
+              <section
+                key={motor.id}
+                aria-label={`${nombre}: ${estado ?? 'sin estado'}`}
+                className={`bg-superficie border border-linea border-l-4 ${franja} rounded-xl p-4 sm:p-6 flex flex-col`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <h2 className="font-condensada font-bold text-2xl text-tinta leading-tight">{nombre}</h2>
+                  <EstadoEtiqueta estado={estado} />
                 </div>
-              </div>
 
-              <div className="bg-gradient-to-br from-green-800/50 to-green-900/50 backdrop-blur-sm rounded-2xl p-6 border border-green-600/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-400 text-sm">Encendidos</p>
-                    <p className="text-3xl font-bold text-green-400">
-                      {motoresConEstado.filter(m => {
-                        const nombreMotor = m.motor.fields['Nombre Motor'];
-                        return (nombreMotor !== 'Jenbacher 3' && nombreMotor !== 'Jenbacher 4') && 
-                               m.ultimoEstado?.fields['Estado Motor'] === 'Encendido';
-                      }).length}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                    <span className="text-2xl">✅</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-red-800/50 to-red-900/50 backdrop-blur-sm rounded-2xl p-6 border border-red-600/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-400 text-sm">Apagados</p>
-                    <p className="text-3xl font-bold text-red-400">
-                      {motoresConEstado.filter(m => {
-                        const nombreMotor = m.motor.fields['Nombre Motor'];
-                        return (nombreMotor !== 'Jenbacher 3' && nombreMotor !== 'Jenbacher 4') && 
-                               m.ultimoEstado?.fields['Estado Motor'] === 'Apagado';
-                      }).length}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center">
-                    <span className="text-2xl">⭕</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Estado Detallado de Motores */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              {motoresConEstado
-                .filter((motorData) => {
-                  // 🔧 TEMPORALMENTE OCULTOS: Jenbacher 3 y Jenbacher 4
-                  // Motivo: No tienen registros de estado en Airtable
-                  // Para mostrarlos nuevamente, remover o comentar este filtro
-                  const nombreMotor = motorData.motor.fields['Nombre Motor'];
-                  return nombreMotor !== 'Jenbacher 3' && nombreMotor !== 'Jenbacher 4';
-                })
-                .map((motorData, index) => {
-                const { motor, ultimoEstado } = motorData;
-                const estadoColor = getEstadoColor(ultimoEstado?.fields['Estado Motor']);
-                
-                return (
-                  <div key={motor.id} className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-600/30 hover:border-slate-500/50 transition-all duration-300">
-                    {/* Header del Motor */}
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                          <span className="text-xl">🏭</span>
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-white">
-                            {motor.fields['Nombre Motor'] || `Motor ${index + 1}`}
-                          </h3>
-                          <p className="text-gray-400 text-sm">ID: {motor.fields['ID']}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-3 h-3 rounded-full ${estadoColor.dot} animate-pulse`}></div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${estadoColor.text} bg-opacity-20 ${estadoColor.bg}`}>
-                          {ultimoEstado?.fields['Estado Motor'] || 'Sin Estado'}
-                        </span>
-                      </div>
+                {ultimoEstado ? (
+                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <dt className="text-sm text-tinta-suave">{estado === 'Encendido' ? 'Encendido desde' : estado === 'Apagado' ? 'Apagado desde' : 'Último cambio'}</dt>
+                      <dd className="font-semibold text-tinta tabular-nums">{formatearFecha(ultimoEstado.fields['Fecha y Hora'])}</dd>
                     </div>
-
-                    {/* Información del Estado */}
-                    {ultimoEstado ? (
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="bg-gray-800/30 rounded-lg p-4">
-                            <p className="text-gray-400 text-sm mb-1">Última Actualización</p>
-                            <p className="text-white font-medium">
-                              {formatearFecha(ultimoEstado.fields['Fecha y Hora'])}
-                            </p>
-                          </div>
-                          
-                          <div className="bg-gray-800/30 rounded-lg p-4">
-                            <p className="text-gray-400 text-sm mb-1">Registrado por</p>
-                            <p className="text-white font-medium">
-                              {ultimoEstado.fields['Realiza Registro'] || 'No especificado'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {ultimoEstado.fields['Observaciones'] && (
-                          <div className="bg-gray-800/30 rounded-lg p-4">
-                            <p className="text-gray-400 text-sm mb-2">Observaciones</p>
-                            <p className="text-white text-sm leading-relaxed">
-                              {ultimoEstado.fields['Observaciones']}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 text-center">
-                        <p className="text-yellow-400">Sin registros de estado disponibles</p>
-                        <p className="text-yellow-300 text-sm mt-1">No se han encontrado estados registrados para este motor</p>
+                    <div>
+                      <dt className="text-sm text-tinta-suave">Registró</dt>
+                      <dd className="font-semibold text-tinta">{ultimoEstado.fields['Realiza Registro'] || 'No especificado'}</dd>
+                    </div>
+                    {ultimoEstado.fields['Observaciones'] && (
+                      <div className="col-span-2">
+                        <dt className="text-sm text-tinta-suave">Observaciones</dt>
+                        <dd className="text-tinta">{String(ultimoEstado.fields['Observaciones'])}</dd>
                       </div>
                     )}
+                  </dl>
+                ) : (
+                  <Aviso tono="alerta" className="mt-4">
+                    Este motor no tiene estados registrados. Encienda o apague el motor para dejar el primero.
+                  </Aviso>
+                )}
 
-                    {/* Botones de Control */}
-                    <div className="mt-6 pt-6 border-t border-gray-700/50">
-                      <p className="text-gray-400 text-sm mb-3">Control del Motor</p>
-                      
-                      {/* Botones Encender/Apagar */}
-                      <div className="flex space-x-3 mb-3">
-                        <button
-                          onClick={() => cambiarEstadoMotor(motor.id, 'Encendido', motor.fields['Nombre Motor'] || `Motor ${index + 1}`)}
-                          disabled={procesandoMotor === motor.id || ultimoEstado?.fields['Estado Motor'] === 'Encendido'}
-                          className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 hover:bg-green-500 disabled:bg-green-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-300 transform hover:scale-105 disabled:transform-none"
-                        >
-                          {procesandoMotor === motor.id ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              <span>Procesando...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>▶️</span>
-                              <span>Encender</span>
-                            </>
-                          )}
-                        </button>
-                        
-                        <button
-                          onClick={() => cambiarEstadoMotor(motor.id, 'Apagado', motor.fields['Nombre Motor'] || `Motor ${index + 1}`)}
-                          disabled={procesandoMotor === motor.id || ultimoEstado?.fields['Estado Motor'] === 'Apagado'}
-                          className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-red-600 hover:bg-red-500 disabled:bg-red-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-300 transform hover:scale-105 disabled:transform-none"
-                        >
-                          {procesandoMotor === motor.id ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              <span>Procesando...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>⏹️</span>
-                              <span>Apagar</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      {/* Botón Registrar Datos */}
+                <div className="mt-auto pt-5">
+                  <div className="border-t border-linea pt-4 flex flex-col sm:flex-row gap-3">
+                    {estado === 'Encendido' && (
                       <button
-                        onClick={() => abrirModalMonitoreo(motor.id, motor.fields['Nombre Motor'] || `Motor ${index + 1}`)}
-                        disabled={procesandoMotor === motor.id || ultimoEstado?.fields['Estado Motor'] !== 'Encendido'}
-                        className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-300 transform hover:scale-105 disabled:transform-none"
+                        type="button"
+                        onClick={() => abrirModalMonitoreo(motor.id, nombre)}
+                        disabled={procesando}
+                        className={`${claseBoton('primario', 'lg')} flex-1`}
                       >
-                        {procesandoMotor === motor.id ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Procesando...</span>
-                          </>
-                        ) : ultimoEstado?.fields['Estado Motor'] !== 'Encendido' ? (
-                          <>
-                            <span>📊</span>
-                            <span>Motor Apagado</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>📊</span>
-                            <span>Registrar Datos</span>
-                          </>
-                        )}
+                        {procesando ? <><Girando /> Procesando…</> : 'Registrar lectura'}
                       </button>
-                    </div>
+                    )}
+                    {estado !== 'Encendido' && (
+                      <button
+                        type="button"
+                        onClick={() => cambiarEstadoMotor(motor.id, 'Encendido', nombre)}
+                        disabled={procesando}
+                        className={`${claseBoton(estado === 'Apagado' ? 'primario' : 'secundario', 'lg')} flex-1`}
+                      >
+                        {procesando ? <><Girando /> Procesando…</> : 'Encender motor'}
+                      </button>
+                    )}
+                    {estado !== 'Apagado' && (
+                      <button
+                        type="button"
+                        onClick={() => cambiarEstadoMotor(motor.id, 'Apagado', nombre)}
+                        disabled={procesando}
+                        className={`${claseBoton('secundario', 'lg')} flex-1`}
+                      >
+                        {procesando ? <><Girando /> Procesando…</> : 'Apagar motor'}
+                      </button>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Empty State */}
-            {motoresConEstado.length === 0 && !loading && !error && (
-              <div className="text-center py-16">
-                <div className="w-24 h-24 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <span className="text-4xl">🏭</span>
+                  {estado !== 'Encendido' && (
+                    <p className="mt-2 text-sm text-tinta-suave">La lectura de contadores se registra con el motor encendido.</p>
+                  )}
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">No hay motores registrados</h3>
-                <p className="text-gray-400 mb-6">No se encontraron motores en el sistema.</p>
-                <button
-                  onClick={cargarDatosMotores}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
-                >
-                  Recargar Datos
-                </button>
-              </div>
-            )}
-          </div>
-        </main>
+              </section>
+            );
+          })}
+        </div>
 
-        <Footer />
+        {/* Sin motores */}
+        {motoresConEstado.length === 0 && !loading && !error && (
+          <Panel titulo="No hay motores registrados" descripcion="No se encontraron motores en Airtable.">
+            <button type="button" onClick={cargarDatosMotores} className={claseBoton('secundario')}>
+              Volver a cargar
+            </button>
+          </Panel>
+        )}
 
         {/* Modal de Confirmación */}
         <ModalConfirmacion />
-        
+
         {/* Modal de Protocolo */}
         <ModalProtocolo />
-        
+
         {/* Modal de Monitoreo */}
         <ModalMonitoreo />
-        </div>
-      </BackgroundLayout>
+      </Pagina>
     </TurnoGuard>
   );
 }

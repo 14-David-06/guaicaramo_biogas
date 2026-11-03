@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { airtableService } from '@/utils/airtable';
 import { useAuth } from '@/hooks/useAuth';
-import BackgroundLayout from '@/components/BackgroundLayout';
+import Link from 'next/link';
+import { claseBoton } from '@/components/ui/estilos';
 
 interface TurnoGuardProps {
   children: React.ReactNode;
@@ -24,6 +25,24 @@ export const PRIVILEGED_ROLES = [
   'CTO',
   'CEO'
 ];
+
+// Pantallas de bloqueo: fondo claro, una tarjeta centrada y la acción que
+// resuelve el bloqueo como botón principal.
+function PantallaEstado({ titulo, children, acciones }: {
+  titulo?: string;
+  children: React.ReactNode;
+  acciones?: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen bg-fondo text-tinta flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-superficie border border-linea rounded-xl p-6 sm:p-8">
+        {titulo && <h1 className="font-condensada font-bold text-2xl sm:text-3xl mb-3">{titulo}</h1>}
+        <div className="text-tinta-suave space-y-3">{children}</div>
+        {acciones && <div className="mt-6 flex flex-col gap-2">{acciones}</div>}
+      </div>
+    </div>
+  );
+}
 
 export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoGuardProps) {
   const { user, isLoading: authLoading } = useAuth();
@@ -91,71 +110,40 @@ export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoG
   // Mostrar loading mientras se verifica autenticación o turno
   if (authLoading || loading) {
     return (
-      <BackgroundLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
-            <p className="text-white">{authLoading ? 'Verificando sesión...' : 'Verificando estado del turno...'}</p>
-          </div>
+      <div className="min-h-screen bg-fondo flex items-center justify-center p-4">
+        <div className="flex items-center gap-3 text-tinta-suave" role="status">
+          <span className="w-6 h-6 rounded-full border-[3px] border-linea border-t-bosque animate-spin" aria-hidden="true" />
+          {authLoading ? 'Verificando sesión…' : 'Verificando el turno…'}
         </div>
-      </BackgroundLayout>
+      </div>
     );
   }
 
   // Mostrar error
   if (error) {
     return (
-      <BackgroundLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-red-400 mb-4">{error}</p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Reintentar
-            </button>
-          </div>
-        </div>
-      </BackgroundLayout>
+      <PantallaEstado
+        titulo="No se pudo verificar el turno"
+        acciones={
+          <button type="button" onClick={() => window.location.reload()} className={claseBoton('primario', 'lg')}>
+            Reintentar
+          </button>
+        }
+      >
+        <p>{error}. Revise la conexión a internet y vuelva a intentar.</p>
+      </PantallaEstado>
     );
   }
 
   // No hay usuario logueado - BLOQUEAR acceso y redirigir al login
   if (!user) {
     return (
-      <BackgroundLayout>
-        <div className="min-h-screen flex flex-col">
-          <div className="flex-grow flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-400/30 rounded-xl p-8 text-center backdrop-blur-sm">
-              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              
-              <h1 className="text-2xl font-bold text-white mb-4">Inicio de Sesión Requerido</h1>
-              
-              <div className="text-gray-300 space-y-3 mb-6">
-                <p className="font-semibold text-blue-400">Debes iniciar sesión para acceder</p>
-                <p className="text-sm">
-                  Esta sección requiere autenticación. Por favor inicia sesión con tu cuenta de operador.
-                </p>
-              </div>
-
-              <button
-                onClick={() => window.location.href = '/'}
-                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all font-semibold flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
-                Ir a Iniciar Sesión
-              </button>
-            </div>
-          </div>
-        </div>
-      </BackgroundLayout>
+      <PantallaEstado
+        titulo="Inicie sesión para continuar"
+        acciones={<Link href="/" className={claseBoton('primario', 'lg')}>Ir a iniciar sesión</Link>}
+      >
+        <p>Esta sección es solo para operadores registrados. Ingrese con su cédula y contraseña.</p>
+      </PantallaEstado>
     );
   }
 
@@ -172,45 +160,17 @@ export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoG
   // No hay turno activo - BLOQUEAR acceso (nadie puede usar el sistema sin turno)
   if (!turnoActivo) {
     return (
-      <BackgroundLayout>
-        <div className="min-h-screen flex flex-col">
-          <div className="flex-grow flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-400/30 rounded-xl p-8 text-center backdrop-blur-sm">
-              <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              
-              <h1 className="text-2xl font-bold text-white mb-4">Sin Turno Activo</h1>
-              
-              <div className="text-gray-300 space-y-3 mb-6">
-                <p className="font-semibold text-amber-400">Debes abrir un turno para acceder al sistema</p>
-                <p className="text-sm">
-                  Todas las funciones de la plataforma requieren que haya un turno operativo activo. 
-                  Ve a la gestión de turnos para abrir un nuevo turno.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  onClick={() => window.location.href = '/turnos'}
-                  className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
-                >
-                  🚀 Ir a Gestión de Turnos
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = '/'}
-                  className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Ir al Inicio
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </BackgroundLayout>
+      <PantallaEstado
+        titulo="Abra un turno para empezar"
+        acciones={
+          <>
+            <Link href="/turnos" className={claseBoton('primario', 'lg')}>Ir a turnos</Link>
+            <Link href="/" className={claseBoton('secundario', 'lg')}>Volver al inicio</Link>
+          </>
+        }
+      >
+        <p>No hay un turno abierto en la planta. Los registros quedan a nombre del operador en turno, así que primero hay que abrirlo.</p>
+      </PantallaEstado>
     );
   }
 
@@ -220,49 +180,23 @@ export default function TurnoGuard({ children, allowTurnosPage = false }: TurnoG
   // Si no es el operador del turno activo, bloquear acceso
   if (!esElOperadorDelTurno) {
     return (
-      <BackgroundLayout>
-        <div className="min-h-screen flex flex-col">
-          <div className="flex-grow flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-gradient-to-br from-red-500/20 to-red-600/10 border border-red-400/30 rounded-xl p-8 text-center backdrop-blur-sm">
-              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-5V9m0 0V7m0 2h2M12 9H9m3-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              
-              <h1 className="text-2xl font-bold text-white mb-4">Acceso Restringido</h1>
-              
-              <div className="text-gray-300 space-y-3 mb-6">
-                <p className="font-semibold">Hay un turno operativo activo</p>
-                <div className="bg-gray-800/50 rounded-lg p-4 text-sm backdrop-blur-sm">
-                  <p><span className="text-gray-400">Operador en turno:</span> <span className="text-white font-medium">{turnoActivo.nombreOperador}</span></p>
-                  <p><span className="text-gray-400">Inicio del turno:</span> <span className="text-white">{new Date(turnoActivo.fechaInicio).toLocaleString()}</span></p>
-                </div>
-                <p className="text-sm">
-                  Solo el operador en turno puede acceder a las funciones del sistema. 
-                  Espera a que se cierre el turno actual para acceder.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  onClick={() => window.location.href = '/turnos'}
-                  className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  Ver Estado de Turnos
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = '/'}
-                  className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Ir al Inicio
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </BackgroundLayout>
+      <PantallaEstado
+        titulo="Otro operador está en turno"
+        acciones={
+          <>
+            <Link href="/turnos" className={claseBoton('primario', 'lg')}>Ver turnos</Link>
+            <Link href="/" className={claseBoton('secundario', 'lg')}>Volver al inicio</Link>
+          </>
+        }
+      >
+        <dl className="bg-superficie-2 border border-linea rounded-lg p-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+          <dt className="text-tinta-suave">En turno</dt>
+          <dd className="font-semibold text-tinta">{turnoActivo.nombreOperador}</dd>
+          <dt className="text-tinta-suave">Desde</dt>
+          <dd className="text-tinta">{new Date(turnoActivo.fechaInicio).toLocaleString('es-CO')}</dd>
+        </dl>
+        <p>Solo quien está en turno puede registrar. Cuando cierre su turno, usted podrá abrir el suyo.</p>
+      </PantallaEstado>
     );
   }
 

@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import BackgroundLayout from '@/components/BackgroundLayout';
+import Link from 'next/link';
 import TurnoGuard from '@/components/TurnoGuard';
+import Pagina from '@/components/ui/Pagina';
+import EncabezadoPagina from '@/components/ui/EncabezadoPagina';
+import Indicadores, { type Indicador } from '@/components/ui/Indicadores';
+import Panel from '@/components/ui/Panel';
+import Aviso from '@/components/ui/Aviso';
+import { claseBoton } from '@/components/ui/estilos';
 import { useAuth } from '@/hooks/useAuth';
 import { airtableService, TurnoOperador, Motor, EstadoMotor } from '@/utils/airtable';
 
@@ -24,8 +28,32 @@ interface MotorConEstado {
 // Debug: Mostrar field IDs
 console.log('🔍 DEBUG FIELD IDS en turnos/page.tsx:', FIELD_IDS);
 
+/** "5 h 20 min" desde el inicio del turno hasta ahora. */
+function duracionDesde(inicio: Date): string {
+  const minutos = Math.max(0, Math.floor((Date.now() - inicio.getTime()) / 60000));
+  const horas = Math.floor(minutos / 60);
+  return horas > 0 ? `${horas} h ${minutos % 60} min` : `${minutos} min`;
+}
+
+const mayuscula = (texto: string) => texto.replace(/^./, (c) => c.toUpperCase());
+
+function FilaMotor({ motor, encendido }: { motor: Motor; encendido: boolean }) {
+  return (
+    <li className="flex items-center gap-3 px-4 py-3 border-t border-linea first:border-t-0">
+      <span
+        className={`w-3 h-3 rounded-full shrink-0 ${encendido ? 'bg-hoja' : 'border-2 border-linea-fuerte'}`}
+        aria-hidden="true"
+      />
+      <span className="font-semibold text-tinta">{motor.fields['Nombre Motor']}</span>
+      <span className="text-tinta-suave text-sm">
+        {motor.fields['Modelo Motor']} · Serie {motor.fields['Número Serie']}
+      </span>
+    </li>
+  );
+}
+
 export default function TurnosPage() {
-  const { user: loggedInUser, logout } = useAuth();
+  const { user: loggedInUser, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [turnoActivo, setTurnoActivo] = useState<TurnoOperador | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,7 +83,7 @@ export default function TurnosPage() {
       console.log('- ID_OPERADOR field ID:', FIELD_IDS.ID_OPERADOR);
       console.log('- ID_OPERADOR valor:', turnoActivo.fields[FIELD_IDS.ID_OPERADOR]);
       console.log('- Usuario logueado:', loggedInUser);
-      
+
       // Mostrar TODOS los campos disponibles
       console.log('🆘 TODOS LOS CAMPOS DISPONIBLES:');
       Object.keys(turnoActivo.fields).forEach(key => {
@@ -71,7 +99,7 @@ export default function TurnosPage() {
       setTurnoActivo(turno);
     } catch (error) {
       console.error('Error al verificar turno activo:', error);
-      setError('Error al verificar el estado del turno');
+      setError('No se pudo consultar el turno. Revise la conexión y recargue la página.');
     } finally {
       setIsLoading(false);
     }
@@ -80,33 +108,33 @@ export default function TurnosPage() {
   const handleAbrirTurno = async () => {
     console.log('\n=== ABRIR TURNO - INICIO ===');
     console.log('Usuario logueado:', loggedInUser);
-    
+
     if (!loggedInUser) {
       console.log('❌ No hay usuario logueado');
       return;
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
       setCargandoMotores(true);
-      
+
       console.log('🚀 Llamando a airtableService.crearTurno con:');
       console.log('- ID Usuario:', loggedInUser.id);
       console.log('- Nombre Usuario:', loggedInUser.nombre);
-      
+
       const nuevoTurno = await airtableService.crearTurno(
-        loggedInUser.id, 
+        loggedInUser.id,
         loggedInUser.nombre
       );
-      
+
       console.log('✅ Turno creado exitosamente:', nuevoTurno);
       setTurnoActivo(nuevoTurno);
-      
+
       // Obtener el estado actual de los motores
       console.log('🔍 Obteniendo estado actual de los motores...');
       const motores = await airtableService.obtenerMotores();
-      
+
       const motoresData: MotorConEstado[] = [];
       for (const motor of motores) {
         try {
@@ -117,15 +145,15 @@ export default function TurnosPage() {
           motoresData.push({ motor, ultimoEstado: null });
         }
       }
-      
+
       setMotoresConEstado(motoresData);
       setCargandoMotores(false);
       setMostrarResumenMotores(true);
-      
+
     } catch (error) {
       console.error('❌ Error al abrir turno:', error);
-      setError('Error al abrir el turno. Por favor, intenta nuevamente.');
-      alert('Error al abrir el turno. Verifica tu conexión e intenta nuevamente.');
+      setError('No se pudo abrir el turno. Revise la conexión e intente de nuevo.');
+      alert('No se pudo abrir el turno. Revise la conexión e intente de nuevo.');
     } finally {
       setIsLoading(false);
       console.log('=== ABRIR TURNO - FIN ===\n');
@@ -148,7 +176,7 @@ export default function TurnosPage() {
         serie: m.motor.fields['Número Serie']
       }))
     };
-    
+
     sessionStorage.setItem('resumenInicioTurno', JSON.stringify(resumenMotores));
     router.push('/monitoreo-motores');
   };
@@ -158,329 +186,239 @@ export default function TurnosPage() {
       console.log('❌ No se puede cerrar: turno o usuario no disponible');
       return;
     }
-    
+
     // VERIFICACIÓN ESTRICTA: Solo el operador que abrió el turno puede cerrarlo
     const nombreOperadorTurno = turnoActivo.fields['Realiza Registro'] || turnoActivo.fields['Nombre del Operador'];
     const nombreUsuarioLogueado = loggedInUser.nombre;
-    
+
     console.log('🔍 DEBUG - Verificando permisos para cerrar:');
     console.log('- Operador del turno:', nombreOperadorTurno);
     console.log('- Usuario actual:', nombreUsuarioLogueado);
     console.log('- Coinciden?:', nombreOperadorTurno === nombreUsuarioLogueado);
-    
+
     if (nombreOperadorTurno !== nombreUsuarioLogueado) {
-      alert(`❌ ACCESO DENEGADO: Solo ${nombreOperadorTurno} puede cerrar este turno.`);
+      alert(`Solo ${nombreOperadorTurno} puede cerrar este turno.`);
       return;
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       await airtableService.cerrarTurno(turnoActivo.id);
-      
+
       // Limpiar el turno activo
       setTurnoActivo(null);
-      
+
       // Mostrar mensaje de éxito
-      alert(`✅ Turno cerrado exitosamente a las ${new Date().toLocaleTimeString()}`);
+      alert(`Turno cerrado a las ${new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}.`);
     } catch (error) {
       console.error('Error al cerrar turno:', error);
-      setError('Error al cerrar el turno. Por favor, intenta nuevamente.');
-      alert('❌ Error al cerrar el turno. Verifica tu conexión e intenta nuevamente.');
+      setError('No se pudo cerrar el turno. Revise la conexión e intente de nuevo.');
+      alert('No se pudo cerrar el turno. Revise la conexión e intente de nuevo.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!loggedInUser) {
+  if (!loggedInUser && authLoading) {
     return (
-      <BackgroundLayout>
-        <div className="min-h-screen flex items-center justify-center px-4">
-          <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-2xl p-6 sm:p-8 border border-white/20 max-w-md w-full">
-            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold mb-3">Acceso Requerido</h1>
-            <p className="text-gray-300 mb-6 text-sm sm:text-base">Debes iniciar sesión para gestionar turnos.</p>
-            <button
-              onClick={() => window.location.href = '/'}
-              className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
-              <span>Iniciar Sesión</span>
-            </button>
-          </div>
+      <div className="min-h-screen bg-fondo flex items-center justify-center p-4">
+        <div className="flex items-center gap-3 text-tinta-suave" role="status">
+          <span className="w-6 h-6 rounded-full border-[3px] border-linea border-t-bosque animate-spin" aria-hidden="true" />
+          Verificando sesión…
         </div>
-      </BackgroundLayout>
+      </div>
     );
   }
 
+  if (!loggedInUser) {
+    return (
+      <div className="min-h-screen bg-fondo text-tinta flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-superficie border border-linea rounded-xl p-6 sm:p-8">
+          <h1 className="font-condensada font-bold text-2xl sm:text-3xl mb-3">Inicie sesión para continuar</h1>
+          <p className="text-tinta-suave">Para abrir o cerrar un turno, ingrese con su cédula y contraseña.</p>
+          <Link href="/" className={`${claseBoton('primario', 'lg')} w-full mt-6`}>Ir a iniciar sesión</Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Datos del turno para el resumen y la acción
+  const nombreOperadorTurno = turnoActivo?.fields
+    ? turnoActivo.fields['Realiza Registro'] || turnoActivo.fields['Nombre del Operador']
+    : undefined;
+  const esElOperadorDelTurno = !!turnoActivo && nombreOperadorTurno === loggedInUser.nombre;
+  const inicioTexto = turnoActivo?.fields?.['Fecha Inicio'];
+  const inicio = inicioTexto ? new Date(inicioTexto as string) : null;
+  const consultando = isLoading && !turnoActivo;
+
+  if (turnoActivo) {
+    console.log('🔍 DEBUG - Botón cerrar turno:');
+    console.log('- Operador del turno:', nombreOperadorTurno);
+    console.log('- Usuario logueado:', loggedInUser.nombre);
+    console.log('- Es el operador del turno?:', esElOperadorDelTurno);
+  }
+
+  const resumen: Indicador[] = [
+    {
+      etiqueta: 'Estado del turno',
+      valor: consultando ? '…' : turnoActivo ? 'Abierto' : 'Cerrado',
+      detalle: consultando ? 'Consultando…' : turnoActivo ? 'Hay un operador en turno' : 'Nadie está en turno',
+      tono: consultando ? 'neutro' : turnoActivo ? 'ok' : 'alerta'
+    },
+    {
+      etiqueta: 'En turno',
+      valor: <span className="text-2xl sm:text-3xl">{turnoActivo ? String(nombreOperadorTurno || 'Sin nombre') : '—'}</span>,
+      detalle: turnoActivo ? (esElOperadorDelTurno ? 'Usted' : 'Otro operador') : undefined
+    },
+    {
+      etiqueta: 'Desde',
+      valor: inicio ? inicio.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—',
+      detalle: inicio ? mayuscula(inicio.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })) : undefined
+    },
+    {
+      etiqueta: 'Tiempo en turno',
+      valor: inicio ? duracionDesde(inicio) : '—'
+    }
+  ];
+
+  const encendidos = motoresConEstado.filter(m => m.ultimoEstado?.fields['Estado Motor'] === 'Encendido');
+  const apagados = motoresConEstado.filter(m => m.ultimoEstado?.fields['Estado Motor'] === 'Apagado' || !m.ultimoEstado);
+
   return (
     <TurnoGuard allowTurnosPage={true}>
-      <BackgroundLayout>
-        <div className="min-h-screen flex flex-col">
-          <Navbar 
-            onLoginClick={() => {}} 
-            loggedInUser={loggedInUser}
-            onLogout={logout}
-          />
-      
-      <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
-        <div className="max-w-7xl mx-auto py-12">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-white mb-4">Gestión de Turnos</h1>
-            <p className="text-gray-300 text-lg">Controla los turnos operativos del sistema</p>
-          </div>
+      <Pagina>
+        <EncabezadoPagina
+          titulo="Turnos"
+          descripcion="Abra su turno al llegar a la planta y ciérrelo al entregar. Los registros quedan a nombre de quien está en turno."
+        />
 
-          {/* Mensajes de error */}
-          {error && (
-            <div className="mb-8 bg-red-500/20 border border-red-400/30 rounded-xl p-4 text-center">
-              <p className="text-red-400">{error}</p>
-            </div>
+        <Indicadores items={resumen} />
+
+        {error && <Aviso tono="error">{error}</Aviso>}
+
+        <Panel
+          titulo={turnoActivo ? (esElOperadorDelTurno ? 'Su turno está abierto' : 'Otro operador está en turno') : 'Abrir turno'}
+          descripcion={
+            consultando
+              ? 'Consultando el estado del turno…'
+              : turnoActivo
+                ? esElOperadorDelTurno
+                  ? 'Al terminar, cierre el turno para que el siguiente operador pueda abrir el suyo.'
+                  : `Solo ${nombreOperadorTurno || 'el operador en turno'} puede cerrar este turno. Cuando lo cierre, usted podrá abrir el suyo.`
+                : `Queda a nombre de ${loggedInUser.nombre}. Al abrirlo verá qué motores recibe encendidos y apagados.`
+          }
+        >
+          {!consultando && !turnoActivo && (
+            <button
+              type="button"
+              onClick={handleAbrirTurno}
+              disabled={isLoading}
+              className={`${claseBoton('primario', 'lg')} w-full sm:w-auto`}
+            >
+              {isLoading ? 'Abriendo turno…' : 'Abrir turno'}
+            </button>
           )}
+          {turnoActivo && esElOperadorDelTurno && (
+            <button
+              type="button"
+              onClick={handleCerrarTurno}
+              disabled={isLoading}
+              className={`${claseBoton('primario', 'lg')} w-full sm:w-auto`}
+            >
+              {isLoading ? 'Cerrando turno…' : 'Cerrar mi turno'}
+            </button>
+          )}
+        </Panel>
+      </Pagina>
 
-          {/* Estado actual del turno */}
-          <div className="mb-8">
-            <div className={`bg-gradient-to-br ${turnoActivo 
-              ? 'from-green-500/20 to-emerald-600/10 border-green-400/30' 
-              : 'from-red-500/20 to-red-600/10 border-red-400/30'
-            } rounded-xl p-8 border text-center`}>
-              <div className="flex items-center justify-center mb-4">
-                <div className={`w-4 h-4 rounded-full mr-3 ${turnoActivo ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></div>
-                <h2 className="text-2xl font-bold text-white">
-                  Estado del Turno: {turnoActivo ? 'ACTIVO' : 'INACTIVO'}
-                </h2>
-              </div>
-              {turnoActivo && turnoActivo.fields && (
-                <div className="text-gray-300 space-y-2">
-                  <p><span className="font-semibold text-green-400">👤 Operador en turno:</span> 
-                    <span className="text-white text-lg ml-2">
-                      {turnoActivo.fields['Realiza Registro'] || turnoActivo.fields['Nombre del Operador'] || 'ERROR: Sin operador'}
-                    </span>
-                  </p>
-                  <p><span className="font-semibold text-blue-400">🕒 Hora de inicio:</span> 
-                    <span className="text-white ml-2">
-                      {turnoActivo.fields['Fecha Inicio']
-                        ? new Date(turnoActivo.fields['Fecha Inicio'] as string).toLocaleString()
-                        : 'ERROR: Sin fecha'
-                      }
-                    </span>
-                  </p>
-                </div>
-              )}
-              {isLoading && (
-                <div className="text-gray-300">
-                  <p>Cargando información del turno...</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Controles de turno */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-600/30">
-              <h3 className="text-xl font-bold text-white mb-4">Abrir Turno</h3>
-              <p className="text-gray-300 mb-6">Inicia un nuevo turno operativo registrando el operador responsable.</p>
-              <button
-                onClick={handleAbrirTurno}
-                disabled={!!turnoActivo || isLoading}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 transform hover:scale-105"
-              >
-                {isLoading ? 'Procesando...' : turnoActivo ? 'Turno Ya Activo' : 'Abrir Turno'}
-              </button>
-            </div>
-
-            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-6 border border-slate-600/30">
-              <h3 className="text-xl font-bold text-white mb-4">Cerrar Turno</h3>
-              <p className="text-gray-300 mb-6">Finaliza el turno actual y registra las observaciones finales.</p>
-              
-              {/* Botón para cerrar turno - SOLO para el operador en turno */}
-              {turnoActivo && loggedInUser && (() => {
-                const nombreOperadorTurno = turnoActivo.fields['Realiza Registro'] || turnoActivo.fields['Nombre del Operador'];
-                const nombreUsuarioLogueado = loggedInUser.nombre;
-                const esElOperadorDelTurno = nombreOperadorTurno === nombreUsuarioLogueado;
-                
-                console.log('🔍 DEBUG - Botón cerrar turno:');
-                console.log('- Operador del turno:', nombreOperadorTurno);
-                console.log('- Usuario logueado:', nombreUsuarioLogueado);
-                console.log('- Es el operador del turno?:', esElOperadorDelTurno);
-                
-                return (
-                  <button
-                    onClick={handleCerrarTurno}
-                    disabled={!esElOperadorDelTurno || isLoading}
-                    className={`w-full px-6 py-3 rounded-lg font-medium transition-all duration-300 transform ${
-                      esElOperadorDelTurno && !isLoading
-                        ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 hover:scale-105 text-white'
-                        : 'bg-gray-600 cursor-not-allowed text-gray-300'
-                    }`}
-                  >
-                    {isLoading 
-                      ? 'Cerrando Turno...' 
-                      : esElOperadorDelTurno 
-                        ? 'Cerrar Mi Turno' 
-                        : `Solo ${nombreOperadorTurno || 'el operador'} puede cerrar`
-                    }
-                  </button>
-                );
-              })()}
-              
-              {!turnoActivo && (
-                <button
-                  disabled={true}
-                  className="w-full bg-gray-600 cursor-not-allowed text-gray-300 px-6 py-3 rounded-lg font-medium"
-                >
-                  No Hay Turno Activo
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Modal de Resumen de Motores al Iniciar Turno */}
+      {/* Resumen de motores al abrir el turno */}
       {mostrarResumenMotores && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-600/50 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6 rounded-t-2xl">
-              <div className="flex items-center space-x-4">
-                <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white">¡Turno Iniciado Exitosamente!</h2>
-                  <p className="text-green-100 text-sm">
-                    {new Date().toLocaleString('es-CO', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
-                </div>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-tinta/40">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-resumen-motores"
+            className="bg-superficie rounded-xl border border-linea max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          >
+            <div className="p-5 sm:p-6 border-b border-linea">
+              <h2 id="titulo-resumen-motores" className="font-condensada font-bold text-2xl sm:text-3xl text-tinta">
+                Turno abierto
+              </h2>
+              <p className="text-tinta-suave mt-1">
+                {mayuscula(new Date().toLocaleString('es-CO', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }))}
+                {' · '}
+                <span className="font-semibold text-tinta">{loggedInUser?.nombre}</span>
+              </p>
             </div>
 
-            {/* Contenido */}
-            <div className="p-6 space-y-6">
-              {/* Información del operador */}
-              <div className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/30">
-                <p className="text-gray-300">
-                  <span className="font-medium text-white">Operador en turno:</span> {loggedInUser?.nombre}
-                </p>
-              </div>
-
+            <div className="p-5 sm:p-6 space-y-5">
               {cargandoMotores ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-400 mr-4"></div>
-                  <span className="text-white">Cargando estado de motores...</span>
+                <div className="flex items-center justify-center gap-3 py-8 text-tinta-suave" role="status">
+                  <span className="w-6 h-6 rounded-full border-[3px] border-linea border-t-bosque animate-spin" aria-hidden="true" />
+                  Consultando el estado de los motores…
                 </div>
               ) : (
                 <>
-                  {/* Resumen rápido */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 rounded-xl p-4 border border-green-400/30 text-center">
-                      <div className="text-3xl font-bold text-green-400">
-                        {motoresConEstado.filter(m => m.ultimoEstado?.fields['Estado Motor'] === 'Encendido').length}
-                      </div>
-                      <p className="text-green-300 text-sm font-medium">Motores Encendidos</p>
-                    </div>
-                    <div className="bg-gradient-to-br from-red-500/20 to-red-600/10 rounded-xl p-4 border border-red-400/30 text-center">
-                      <div className="text-3xl font-bold text-red-400">
-                        {motoresConEstado.filter(m => m.ultimoEstado?.fields['Estado Motor'] === 'Apagado' || !m.ultimoEstado).length}
-                      </div>
-                      <p className="text-red-300 text-sm font-medium">Motores Apagados</p>
-                    </div>
-                  </div>
+                  <Indicadores
+                    items={[
+                      { etiqueta: 'Motores encendidos', valor: encendidos.length },
+                      { etiqueta: 'Motores apagados', valor: apagados.length }
+                    ]}
+                  />
 
-                  {/* Lista de motores encendidos */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-green-400 mb-3 flex items-center">
-                      <span className="w-3 h-3 bg-green-400 rounded-full mr-2 animate-pulse"></span>
-                      Motores que recibes ENCENDIDOS:
-                    </h3>
-                    <div className="space-y-2">
-                      {motoresConEstado
-                        .filter(m => m.ultimoEstado?.fields['Estado Motor'] === 'Encendido')
-                        .map((m, idx) => (
-                          <div key={idx} className="bg-green-500/10 border border-green-400/20 rounded-lg p-3 flex items-center">
-                            <svg className="w-5 h-5 text-green-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            <span className="text-white font-medium">
-                              {m.motor.fields['Nombre Motor']} - {m.motor.fields['Modelo Motor']} ({m.motor.fields['Número Serie']})
-                            </span>
-                          </div>
-                        ))}
-                      {motoresConEstado.filter(m => m.ultimoEstado?.fields['Estado Motor'] === 'Encendido').length === 0 && (
-                        <p className="text-gray-400 italic text-sm">No hay motores encendidos actualmente</p>
-                      )}
-                    </div>
-                  </div>
+                  <section>
+                    <h3 className="font-condensada font-bold text-lg text-tinta mb-2">Motores que recibe encendidos</h3>
+                    {encendidos.length > 0 ? (
+                      <ul className="border border-linea rounded-lg">
+                        {encendidos.map((m, idx) => <FilaMotor key={idx} motor={m.motor} encendido />)}
+                      </ul>
+                    ) : (
+                      <p className="text-tinta-suave">Ningún motor está encendido.</p>
+                    )}
+                  </section>
 
-                  {/* Lista de motores apagados */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-red-400 mb-3 flex items-center">
-                      <span className="w-3 h-3 bg-red-400 rounded-full mr-2"></span>
-                      Motores que recibes APAGADOS:
-                    </h3>
-                    <div className="space-y-2">
-                      {motoresConEstado
-                        .filter(m => m.ultimoEstado?.fields['Estado Motor'] === 'Apagado' || !m.ultimoEstado)
-                        .map((m, idx) => (
-                          <div key={idx} className="bg-red-500/10 border border-red-400/20 rounded-lg p-3 flex items-center">
-                            <svg className="w-5 h-5 text-red-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                            <span className="text-white font-medium">
-                              {m.motor.fields['Nombre Motor']} - {m.motor.fields['Modelo Motor']} ({m.motor.fields['Número Serie']})
-                            </span>
-                          </div>
-                        ))}
-                      {motoresConEstado.filter(m => m.ultimoEstado?.fields['Estado Motor'] === 'Apagado' || !m.ultimoEstado).length === 0 && (
-                        <p className="text-gray-400 italic text-sm">No hay motores apagados actualmente</p>
-                      )}
-                    </div>
-                  </div>
+                  <section>
+                    <h3 className="font-condensada font-bold text-lg text-tinta mb-2">Motores que recibe apagados</h3>
+                    {apagados.length > 0 ? (
+                      <ul className="border border-linea rounded-lg">
+                        {apagados.map((m, idx) => <FilaMotor key={idx} motor={m.motor} encendido={false} />)}
+                      </ul>
+                    ) : (
+                      <p className="text-tinta-suave">Ningún motor está apagado.</p>
+                    )}
+                  </section>
                 </>
               )}
             </div>
 
-            {/* Footer con botones */}
-            <div className="p-6 border-t border-slate-600/30 flex flex-col sm:flex-row gap-3">
+            <div className="p-5 sm:p-6 border-t border-linea flex flex-col sm:flex-row gap-3">
               <button
+                type="button"
                 onClick={handleIrAMonitoreoMotores}
-                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center space-x-2"
+                className={`${claseBoton('primario', 'lg')} flex-1`}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <span>Ir a Monitoreo de Motores</span>
+                Ir a monitoreo de motores
               </button>
               <button
+                type="button"
                 onClick={() => setMostrarResumenMotores(false)}
-                className="px-6 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-xl font-medium transition-all duration-300"
+                className={claseBoton('secundario', 'lg')}
               >
-                Cerrar
+                Quedarme en turnos
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <Footer />
-        </div>
-      </BackgroundLayout>
     </TurnoGuard>
   );
 }

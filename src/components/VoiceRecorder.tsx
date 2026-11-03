@@ -61,14 +61,16 @@ export default function VoiceRecorder({
         type="button"
         onClick={handleVoiceRecording}
         disabled={disabled || isTranscribing}
-        className={`flex items-center justify-center ${sizeClasses[size]} rounded-full transition-all duration-300 transform hover:scale-105 ${
-          isRecording 
-            ? 'bg-red-600 hover:bg-red-500 animate-pulse' 
+        aria-label={isRecording ? 'Detener y transcribir' : 'Dictar por voz'}
+        title={isRecording ? 'Detener y transcribir' : 'Dictar por voz'}
+        className={`flex items-center justify-center ${sizeClasses[size]} rounded-full shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bosque ${
+          isRecording
+            ? 'bg-rojo hover:bg-[#912018] ring-4 ring-rojo/25 animate-pulse'
             : isTranscribing
-              ? 'bg-yellow-600 cursor-not-allowed'
+              ? 'bg-ambar-borde cursor-wait'
               : disabled
-                ? 'bg-gray-600 cursor-not-allowed'
-                : 'bg-purple-600 hover:bg-purple-500'
+                ? 'bg-linea-fuerte cursor-not-allowed'
+                : 'bg-bosque hover:bg-bosque-oscuro'
         }`}
       >
         {isRecording ? (
@@ -87,29 +89,16 @@ export default function VoiceRecorder({
         )}
       </button>
 
-      {/* Indicadores de estado opcionales */}
-      {(isRecording || isTranscribing) && (
-        <div className="mt-2 text-xs text-center">
-          {isRecording && (
-            <div className="flex items-center text-red-400">
-              <div className="w-2 h-2 bg-red-400 rounded-full mr-2 animate-pulse"></div>
-              Grabando...
-            </div>
-          )}
-          {isTranscribing && (
-            <div className="flex items-center text-yellow-400">
-              <div className="w-2 h-2 bg-yellow-400 rounded-full mr-2 animate-pulse"></div>
-              Procesando...
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Mostrar errores si hay */}
-      {voiceError && (
-        <div className="mt-2 text-xs text-red-400 text-center">
-          ❌ {voiceError}
-        </div>
+      {/* Estado y errores, en una etiqueta con fondo propio para que se lean sobre cualquier página */}
+      {(isRecording || isTranscribing || voiceError) && (
+        <p
+          role={voiceError ? 'alert' : 'status'}
+          className={`mt-2 px-2 py-0.5 rounded-full text-xs font-semibold text-center bg-superficie border ${
+            voiceError ? 'text-rojo border-rojo-borde' : isRecording ? 'text-rojo border-rojo-borde' : 'text-ambar border-ambar-borde'
+          }`}
+        >
+          {voiceError ?? (isRecording ? 'Grabando…' : 'Transcribiendo…')}
+        </p>
       )}
     </div>
   );

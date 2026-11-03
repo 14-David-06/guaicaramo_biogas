@@ -1,12 +1,28 @@
 'use client';
 
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import BackgroundLayout from '@/components/BackgroundLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { airtableService } from '@/utils/airtable';
 import * as XLSX from 'xlsx';
+import Pagina from '@/components/ui/Pagina';
+import EncabezadoPagina from '@/components/ui/EncabezadoPagina';
+import Indicadores from '@/components/ui/Indicadores';
+import Panel from '@/components/ui/Panel';
+import Aviso, { type TonoAviso } from '@/components/ui/Aviso';
+import { claseBoton, claseCampo, claseEtiqueta } from '@/components/ui/estilos';
+
+/** Resultado de la última descarga, para el resumen de arriba. */
+interface UltimaExportacion {
+  archivo: string;
+  registros: number;
+  hojas: number;
+}
+
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+function fechaCorta(fecha: string): string {
+  return new Date(`${fecha}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 interface AirtableRecord {
   id?: string;
@@ -31,31 +47,26 @@ interface DashboardRow {
 }
 
 export default function SensoresPage() {
-  const { user: loggedInUser, logout } = useAuth();
+  const { user: loggedInUser } = useAuth();
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   const [tipoDatos, setTipoDatos] = useState('todos');
   const [exportando, setExportando] = useState(false);
+  const [aviso, setAviso] = useState<{ tono: TonoAviso; titulo: string; texto: string } | null>(null);
+  const [ultima, setUltima] = useState<UltimaExportacion | null>(null);
 
   if (!loggedInUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
-        <div className="text-white text-center bg-black/50 backdrop-blur-md rounded-2xl p-6 sm:p-8 border border-white/20 max-w-md w-full">
-          <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold mb-3">Acceso Requerido</h1>
-          <p className="text-gray-300 mb-6 text-sm sm:text-base">Debes iniciar sesión para ver los sensores.</p>
+      <div className="min-h-screen flex items-center justify-center bg-fondo px-4">
+        <div className="bg-superficie border border-linea rounded-xl p-6 sm:p-8 max-w-md w-full text-center">
+          <h1 className="font-condensada font-bold text-2xl sm:text-3xl text-tinta">Inicie sesión</h1>
+          <p className="mt-2 text-tinta-suave">Para ver y exportar el histórico de registros necesita ingresar con su cédula.</p>
           <button
+            type="button"
             onClick={() => window.location.href = '/'}
-            className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02] shadow-lg flex items-center justify-center space-x-2"
+            className={`${claseBoton('primario', 'lg')} w-full mt-6`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            <span>Iniciar Sesión</span>
+            Ir a iniciar sesión
           </button>
         </div>
       </div>
@@ -64,18 +75,19 @@ export default function SensoresPage() {
 
   const opcionesDatos = [
     { value: 'todos', label: 'Todos los datos' },
-    { value: 'turnos', label: 'Turnos de Operadores' },
-    { value: 'motores', label: 'Estados de Motores' },
-    { value: 'monitoreo', label: 'Monitoreo de Motores' },
-    { value: 'jenbacher', label: 'Registros Diarios Jenbacher' },
-    { value: 'biodigestores', label: 'Mediciones de Biodigestores' },
-    { value: 'bitacora', label: 'Bitácora de Biogas' },
-    { value: 'limpiezas', label: 'Registros de Limpiezas' }
+    { value: 'turnos', label: 'Turnos de operadores' },
+    { value: 'motores', label: 'Estados de motores' },
+    { value: 'monitoreo', label: 'Monitoreo de motores' },
+    { value: 'jenbacher', label: 'Registros diarios Jenbacher' },
+    { value: 'biodigestores', label: 'Mediciones de biodigestores' },
+    { value: 'bitacora', label: 'Bitácora de biogás' },
+    { value: 'limpiezas', label: 'Registros de limpiezas' }
   ];
 
   const handleExportarExcel = async () => {
+    setAviso(null);
     if (!fechaInicio || !fechaFin) {
-      alert('Por favor selecciona las fechas de inicio y fin');
+      setAviso({ tono: 'error', titulo: 'Faltan las fechas', texto: 'Elija la fecha inicial y la final antes de descargar el archivo.' });
       return;
     }
 
@@ -175,11 +187,22 @@ export default function SensoresPage() {
 
       // Generar archivo Excel profesional
       generarExcelProfesional(datosExportar, nombreArchivo, fechaInicioISO, fechaFinISO);
-      
-      alert(`✅ Exportación completada exitosamente!\nArchivo: ${nombreArchivo}\n\nDatos exportados desde ${fechaInicio} hasta ${fechaFin}`);
+
+      const registros = datosExportar.filter((h) => h.hoja !== 'Dashboard').reduce((total, h) => total + h.datos.length, 0);
+      const hojas = datosExportar.filter((h) => h.datos && h.datos.length > 0).length;
+      setUltima({ archivo: nombreArchivo, registros, hojas });
+      setAviso({
+        tono: 'exito',
+        titulo: 'Archivo descargado',
+        texto: `${nombreArchivo}: ${registros.toLocaleString('es-CO')} registros del ${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}.`
+      });
     } catch (error) {
       console.error('Error al exportar:', error);
-      alert('❌ Error al exportar los datos. Revisa la consola para más detalles.');
+      setAviso({
+        tono: 'error',
+        titulo: 'No se pudo exportar',
+        texto: 'No se pudieron leer los datos o el rango elegido no tiene registros. Revise la conexión, pruebe con otras fechas e intente de nuevo.'
+      });
     } finally {
       setExportando(false);
     }
@@ -344,110 +367,122 @@ export default function SensoresPage() {
     XLSX.writeFile(workbook, nombreArchivo);
   };
 
+  const etiquetaTipo = opcionesDatos.find((o) => o.value === tipoDatos)?.label ?? '';
+  const dias =
+    fechaInicio && fechaFin ? Math.round((new Date(fechaFin).getTime() - new Date(fechaInicio).getTime()) / DIA_MS) + 1 : null;
+  const rangoInvertido = dias !== null && dias < 1;
+
   return (
-    <BackgroundLayout>
-      <div className="min-h-screen flex flex-col">
-        <Navbar 
-          onLoginClick={() => {}} 
-          loggedInUser={loggedInUser}
-          onLogout={logout}
-        />
-          
-          <main className="pt-16 px-4 sm:px-6 lg:px-8 flex-grow">
-        <div className="max-w-7xl mx-auto py-12">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-white mb-4">Histórico de Registros</h1>
-            <p className="text-gray-300 text-lg">Histórico de datos registrados del sistema</p>
+    <Pagina>
+      <EncabezadoPagina
+        titulo="Histórico de registros"
+        descripcion="Descargue en Excel lo que se ha registrado en la planta durante un rango de fechas."
+      />
+
+      <Indicadores
+        items={[
+          {
+            etiqueta: 'Período elegido',
+            valor: dias === null ? '—' : rangoInvertido ? 'Revisar' : dias,
+            unidad: dias !== null && !rangoInvertido ? (dias === 1 ? 'día' : 'días') : undefined,
+            detalle:
+              dias === null
+                ? 'Elija la fecha inicial y la final'
+                : rangoInvertido
+                  ? 'La fecha final es anterior a la inicial'
+                  : `Del ${fechaCorta(fechaInicio)} al ${fechaCorta(fechaFin)}`,
+            tono: rangoInvertido ? 'alerta' : 'neutro'
+          },
+          {
+            etiqueta: 'Hojas del archivo',
+            valor: tipoDatos === 'todos' ? 8 : 1,
+            detalle: tipoDatos === 'todos' ? 'Resumen y hasta 7 tablas' : etiquetaTipo
+          },
+          {
+            etiqueta: 'Última descarga',
+            valor: ultima ? ultima.registros.toLocaleString('es-CO') : '—',
+            unidad: ultima ? 'registros' : undefined,
+            detalle: ultima ? <span className="break-all">{ultima.archivo}</span> : 'Aún no ha descargado en esta sesión'
+          }
+        ]}
+      />
+
+      {aviso && <Aviso tono={aviso.tono} titulo={aviso.titulo}>{aviso.texto}</Aviso>}
+
+      <Panel
+        titulo="Exportar a Excel"
+        descripcion="Los registros se filtran por su fecha de creación o de registro."
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label htmlFor="fecha-inicio" className={claseEtiqueta}>Fecha inicial</label>
+            <input
+              id="fecha-inicio"
+              type="date"
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+              className={`${claseCampo} min-h-[46px]`}
+              required
+            />
           </div>
 
-          {/* Panel de Exportación */}
-          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-600/30 mb-8">
-            <h2 className="text-2xl font-bold text-white mb-6">Exportar Datos a Excel</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-              
-              {/* Fecha Inicio */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Fecha Inicio *
-                </label>
-                <input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+          <div>
+            <label htmlFor="fecha-fin" className={claseEtiqueta}>Fecha final</label>
+            <input
+              id="fecha-fin"
+              type="date"
+              value={fechaFin}
+              onChange={(e) => setFechaFin(e.target.value)}
+              className={`${claseCampo} min-h-[46px]`}
+              required
+            />
+          </div>
 
-              {/* Fecha Fin */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Fecha Fin *
-                </label>
-                <input
-                  type="date"
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
+          <div>
+            <label htmlFor="tipo-datos" className={claseEtiqueta}>Qué datos</label>
+            <select
+              id="tipo-datos"
+              value={tipoDatos}
+              onChange={(e) => setTipoDatos(e.target.value)}
+              className={`${claseCampo} min-h-[46px]`}
+            >
+              {opcionesDatos.map((opcion) => (
+                <option key={opcion.value} value={opcion.value}>
+                  {opcion.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-              {/* Tipo de Datos */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Tipo de Datos
-                </label>
-                <select
-                  value={tipoDatos}
-                  onChange={(e) => setTipoDatos(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {opcionesDatos.map((opcion) => (
-                    <option key={opcion.value} value={opcion.value} className="bg-gray-700">
-                      {opcion.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Botón Exportar */}
-              <div className="flex items-end">
-                <button
-                  onClick={handleExportarExcel}
-                  disabled={exportando}
-                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors font-medium flex items-center justify-center"
-                >
-                  {exportando ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Exportando...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Exportar Excel
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="text-sm text-gray-400">
-              <p>Selecciona el rango de fechas y el tipo de datos que deseas exportar. Los datos se filtrarán por fecha de creación/registro.</p>
-            </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={handleExportarExcel}
+              disabled={exportando}
+              className={`${claseBoton('primario')} w-full min-h-[46px]`}
+            >
+              {exportando ? (
+                <>
+                  <span className="w-5 h-5 rounded-full border-[3px] border-white/40 border-t-white animate-spin" aria-hidden="true" />
+                  Preparando archivo…
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Descargar Excel
+                </>
+              )}
+            </button>
           </div>
         </div>
-      </main>
 
-        <Footer />
-      </div>
-    </BackgroundLayout>
+        <p className="mt-4 text-sm text-tinta-suave">
+          Con «Todos los datos» el archivo trae una hoja de resumen y una hoja por tabla: turnos, estados y monitoreo de motores,
+          registros Jenbacher, biodigestores, bitácora y limpiezas.
+        </p>
+      </Panel>
+    </Pagina>
   );
 }
