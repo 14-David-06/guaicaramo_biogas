@@ -61,13 +61,18 @@ function verificarConfiguracion(tabla: string | undefined, nombre: string): stri
   return tabla;
 }
 
-/** Trae todas las páginas de una consulta, siguiendo el cursor `offset` de Airtable. */
-async function consultarTodo(tablaId: string, params: Record<string, string>): Promise<RegistroAirtable[]> {
+/**
+ * Trae todas las páginas de una consulta, siguiendo el cursor `offset` de Airtable.
+ * `campos` limita los campos devueltos: en consultas de un año entero reduce
+ * bastante el tamaño de cada página.
+ */
+async function consultarTodo(tablaId: string, params: Record<string, string>, campos?: string[]): Promise<RegistroAirtable[]> {
   const registros: RegistroAirtable[] = [];
   let offset: string | undefined;
 
   do {
     const query = new URLSearchParams({ ...params, pageSize: '100' });
+    for (const campo of campos ?? []) query.append('fields[]', campo);
     if (offset) query.set('offset', offset);
 
     const respuesta = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${tablaId}?${query.toString()}`, {
@@ -105,7 +110,8 @@ export async function registrosDelRango(
   tablaId: string | undefined,
   nombreTabla: string,
   desde: string,
-  hasta: string
+  hasta: string,
+  campos?: string[]
 ): Promise<RegistroAirtable[]> {
   const tabla = verificarConfiguracion(tablaId, nombreTabla);
   const { inicio } = rangoDiaBogota(desde);
@@ -115,7 +121,7 @@ export async function registrosDelRango(
     `NOT(IS_BEFORE(CREATED_TIME(), DATETIME_PARSE('${inicio.toISOString()}'))), ` +
     `IS_BEFORE(CREATED_TIME(), DATETIME_PARSE('${fin.toISOString()}'))` +
     `)`;
-  return consultarTodo(tabla, { filterByFormula: formula });
+  return consultarTodo(tabla, { filterByFormula: formula }, campos);
 }
 
 /** Registros creados dentro de un día calendario de Bogotá. */

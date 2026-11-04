@@ -125,6 +125,20 @@ export const LIMITES_PLANILLA = {
   maxPresion: 100
 };
 
+// ── Informe "Datos Producción y Pérdidas" de la extractora ─────────────────
+//
+// Las "normas" del bloque "Información Calidad Biogás" de ese informe, tal como
+// aparecen en sus rótulos ("% METANO (Norma 52)", "KWH/M3 Biogás (1,8)"). Son
+// el tercer juego de umbrales del mismo gas; solo marcan "Atención" en el
+// bloque que la app le entrega a la extractora.
+export const NORMAS_INFORME_PRODUCCION = {
+  ch4: { minimo: 52, referencia: 'Norma 52' },
+  o2: { maximo: 1.5, referencia: 'Norma 1,5' },
+  co2: { maximo: 35, referencia: 'Norma 35' },
+  h2s: { maximo: 200, referencia: 'Norma 200' },
+  kwhPorM3: { minimo: 1.8, referencia: 'Meta 1,8' }
+} satisfies Record<string, { minimo?: number; maximo?: number; referencia: string }>;
+
 /** Evalúa un valor contra un umbral. Devuelve null si está dentro de rango. */
 export function fueraDeRango(valor: number, umbral: Pick<Umbral, 'unidad' | 'minimo' | 'maximo'>): string | null {
   if (umbral.minimo !== undefined && valor < umbral.minimo) {

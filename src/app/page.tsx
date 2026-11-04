@@ -100,10 +100,10 @@ function Inicio({ usuario, onLogout }: { usuario: User; onLogout: () => void }) 
           <section aria-labelledby="titulo-planilla">
             <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
               <div>
-                <h2 id="titulo-planilla" className="font-condensada font-bold text-2xl sm:text-3xl">Planilla Jenbacher de hoy</h2>
-                <p className="text-tinta-suave">Gas, biofiltro y potencia hora a hora, de 06:00 a 05:00.</p>
+                <h2 id="titulo-planilla" className="font-condensada font-bold text-2xl sm:text-3xl">Registro Jenbacher de hoy</h2>
+                <p className="text-tinta-suave">Lecturas de gas, biofiltro y potencia del día, de 06:00 a 05:00.</p>
               </div>
-              <Link href="/registro-jenbacher" className={claseBoton('secundario')}>Abrir planilla</Link>
+              <Link href="/registro-jenbacher" className={claseBoton('secundario')}>Abrir registro</Link>
             </div>
             {planilla ? (
               <Indicadores items={indicadoresPlanilla(planilla)} />

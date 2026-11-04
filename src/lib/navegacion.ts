@@ -20,7 +20,7 @@ export const SECCIONES_MENU: SeccionMenu[] = [
     paginas: [
       { nombre: 'Turnos', href: '/turnos', descripcion: 'Abrir y cerrar el turno' },
       { nombre: 'Monitoreo de motores', href: '/monitoreo-motores', descripcion: 'Estado y lecturas de cada motor' },
-      { nombre: 'Planilla Jenbacher', href: '/registro-jenbacher', descripcion: 'Gas en 3 puntos y potencia, hora a hora' },
+      { nombre: 'Registro Jenbacher', href: '/registro-jenbacher', descripcion: 'Parámetros de cada motor, gas y biofiltro' },
       { nombre: 'Consumo barraje #2', href: '/consumo-barraje', descripcion: 'Consumo diario por área de la planta de beneficio' },
       { nombre: 'Limpiezas', href: '/limpiezas', descripcion: 'Limpiezas de equipos y áreas' },
       { nombre: 'Bitácora de eventos', href: '/bitacora-biogas', descripcion: 'Incidencias y novedades del turno' }
@@ -33,6 +33,7 @@ export const SECCIONES_MENU: SeccionMenu[] = [
       { nombre: 'Tablero general', href: '/dashboard', descripcion: 'Vista general de la planta' },
       { nombre: 'Histórico de registros', href: '/sensores', descripcion: 'Consultar lecturas anteriores' },
       { nombre: 'Informe diario', href: '/informe-diario', descripcion: 'Consolidado del día en PDF y Excel' },
+      { nombre: 'Informe Servicios Industriales', href: '/informe-servicios-industriales', descripcion: 'Acumulados de biogás por mes, semana y día' },
       { nombre: 'Remoción de H2S', href: '/remocion-h2s', descripcion: 'H2S antes y después del filtro' }
     ]
   },

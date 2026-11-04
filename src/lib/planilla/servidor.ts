@@ -7,9 +7,12 @@ import 'server-only';
 // para que la planilla no dependa del token expuesto en el cliente.
 
 import {
-  ErrorConfiguracion, TABLAS, actualizarRegistro, crearRegistros, registrosDonde, todosLosMotores, type RegistroAirtable
+  ErrorConfiguracion, TABLAS, actualizarRegistro, crearRegistros, registrosDelRango, registrosDonde, todosLosMotores,
+  type RegistroAirtable
 } from '../informe/airtable-server';
-import { sumarDias } from '../informe/fechas';
+import { aHoraBogota, sumarDias } from '../informe/fechas';
+import { fechaPlanillaDe } from './franjas';
+import { CAMPO_MEDICION, GASES_MEDICION, type MedicionDigestor, type TomaRegistrada } from './mediciones';
 import { camposDeRegistro, CAMPOS, VERSION_PLANILLA } from './campos';
 import {
   CONTADORES, DEFINICION_CONTADOR,
@@ -206,4 +209,52 @@ export async function guardarOperacion(
   if (turnoId) campos['Turno'] = [turnoId];
   const [registro] = await crearRegistros(TABLAS.operacionJenbacher, TABLA_OPERACION, [campos]);
   return registro.id;
+}
+
+// --- Mediciones antes del biofiltro (por digestor) ---
+
+const TABLA_MEDICIONES = 'Medicion Biodigestores';
+
+/** Tomas de cada digestor dentro de la planilla `fecha` (de 06:00 a 06:00). */
+export async function medicionesDePlanilla(fecha: string): Promise<TomaRegistrada[]> {
+  const registros = await registrosDelRango(TABLAS.medicionBiodigestores, TABLA_MEDICIONES, fecha, sumarDias(fecha, 1));
+  return registros
+    .filter((r) => fechaPlanillaDe(new Date(r.createdTime)) === fecha)
+    .sort((a, b) => a.createdTime.localeCompare(b.createdTime))
+    .map((r) => {
+      const digestor = r.fields['Biodigestor Monitoreado'];
+      return {
+        digestorId: Array.isArray(digestor) ? String(digestor[0] ?? '') : '',
+        hora: aHoraBogota(r.createdTime),
+        operador: texto(r.fields['Realiza Registro']),
+        valores: Object.fromEntries(
+          GASES_MEDICION.map((g) => {
+            const v = r.fields[CAMPO_MEDICION[g]];
+            return [g, typeof v === 'number' && Number.isFinite(v) ? v : null];
+          })
+        ) as TomaRegistrada['valores']
+      };
+    });
+}
+
+/** Una toma por digestor, en un solo lote (todo o nada). */
+export async function guardarMediciones(
+  mediciones: MedicionDigestor[],
+  operador: string,
+  turnoId: string | null
+): Promise<RegistroAirtable[]> {
+  return crearRegistros(
+    TABLAS.medicionBiodigestores,
+    TABLA_MEDICIONES,
+    mediciones.map((m) => {
+      const campos: Record<string, unknown> = {
+        'Biodigestor Monitoreado': [m.digestorId],
+        'Realiza Registro': operador
+      };
+      for (const g of GASES_MEDICION) campos[CAMPO_MEDICION[g]] = m.valores[g];
+      // El enlace de turno de esta tabla apunta a "Turnos Operadores", como en el registro de biodigestores.
+      if (turnoId) campos['Turno Biogas'] = [turnoId];
+      return campos;
+    })
+  );
 }
