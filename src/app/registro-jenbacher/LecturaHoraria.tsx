@@ -5,14 +5,13 @@ import Link from 'next/link';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import Aviso from '@/components/ui/Aviso';
 import Panel from '@/components/ui/Panel';
-import { claseBoton, claseCampo } from '@/components/ui/estilos';
-import { formatearFechaCorta, sumarDias } from '@/lib/informe/fechas';
+import { claseBoton } from '@/components/ui/estilos';
+import { formatearFechaCorta } from '@/lib/informe/fechas';
 import { UMBRALES_PLANILLA_BIOFILTRO, UMBRALES_PLANILLA_GAS } from '@/lib/informe/umbrales';
 import { nombreCortoMotor } from '@/lib/planilla/campos';
-import { franjaYaEmpezo } from '@/lib/planilla/franjas';
 import {
-  ETIQUETA_PUNTO, GASES, HORAS_PLANILLA, PUNTOS_MEDICION, SOPLADORES,
-  type Gas, type HoraPlanilla, type PuntoMedicion, type RespuestaPlanilla, type Soplador
+  ETIQUETA_PUNTO, GASES, PUNTOS_MEDICION, SOPLADORES,
+  type Gas, type PuntoMedicion, type RespuestaPlanilla, type Soplador
 } from '@/lib/planilla/tipos';
 import { alertasDeUmbral, validarLectura, type AlertaUmbral } from '@/lib/planilla/validacion';
 import CampoNumero from './CampoNumero';
@@ -120,7 +119,9 @@ export default function LecturaHoraria({ datos, operador, onGuardado }: {
   const disponibles = datos.motores.filter((m) => m.encendido && m.tieneMonitoreo);
   const ultima = useMemo(() => [...datos.franjas].reverse().find((f) => f.lectura)?.lectura ?? null, [datos.franjas]);
 
-  const [hora, setHora] = useState<HoraPlanilla>(datos.horaActual);
+  // La hora es fija: la de la planilla en curso. Al guardar, la página se recarga y avanza sola.
+  const hora = datos.horaActual;
+  const fecha = datos.fechaActual;
   // Digestores y sopladores casi nunca cambian de una hora a otra: se precargan con la última lectura.
   const [digestores, setDigestores] = useState<string[]>(ultima?.digestorIds ?? []);
   const [gas, setGas] = useState(GAS_INICIAL);
@@ -134,8 +135,6 @@ export default function LecturaHoraria({ datos, operador, onGuardado }: {
   const [alertas, setAlertas] = useState<AlertaUmbral[] | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  // La lectura de las 05:00 tomada a las 06:10 es de la planilla anterior.
-  const fecha = franjaYaEmpezo(datos.fechaActual, hora, new Date()) ? datos.fechaActual : sumarDias(datos.fechaActual, -1);
   const registradosEnLaHora = useMemo(() => {
     if (fecha !== datos.fecha) return new Set<string>();
     const lectura = datos.franjas.find((f) => f.hora === hora)?.lectura;
@@ -242,21 +241,11 @@ export default function LecturaHoraria({ datos, operador, onGuardado }: {
         <Bloque numero="1" titulo="Hora y digestores utilizados">
           <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
             <div>
-              <label htmlFor="hora" className="block text-sm font-semibold text-tinta-suave mb-1">Hora</label>
+              <span className="block text-sm font-semibold text-tinta-suave mb-1">Hora</span>
               <div className="flex items-center gap-3">
-                <select
-                  id="hora"
-                  value={hora}
-                  onChange={(e) => {
-                    setHora(e.target.value as HoraPlanilla);
-                    cambio();
-                  }}
-                  className={`${claseCampo} min-h-[46px] text-lg font-semibold w-auto`}
-                >
-                  {HORAS_PLANILLA.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
+                <span className="inline-flex items-center min-h-[46px] px-4 rounded-lg border-2 border-bosque bg-hoja-claro font-condensada font-bold text-2xl text-bosque-oscuro tabular-nums">
+                  {hora}
+                </span>
                 <span className="text-tinta-suave">Planilla del {formatearFechaCorta(fecha)}</span>
               </div>
             </div>
@@ -376,10 +365,10 @@ export default function LecturaHoraria({ datos, operador, onGuardado }: {
                 return (
                   <fieldset
                     key={m.id}
+                    aria-label={m.nombre.replace(/\s+/g, ' ')}
                     disabled={!disponible || registrado}
                     className={`rounded-lg border-2 p-3 sm:p-4 ${activo ? 'border-bosque bg-superficie' : 'border-linea bg-superficie-2'}`}
                   >
-                    <legend className="sr-only">{m.nombre}</legend>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3">
                       <span className="font-condensada font-bold text-xl text-tinta">{m.nombre.replace(/\s+/g, ' ')}</span>
                       {!disponible ? (

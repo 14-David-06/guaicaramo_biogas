@@ -9,6 +9,7 @@ import Indicadores from '@/components/ui/Indicadores';
 import Aviso from '@/components/ui/Aviso';
 import { useAuth } from '@/hooks/useAuth';
 import { formatearFechaLarga } from '@/lib/informe/fechas';
+import { franjaActual } from '@/lib/planilla/franjas';
 import { mensajeBloqueo } from '@/lib/planilla/operacion';
 import type { RespuestaPlanilla } from '@/lib/planilla/tipos';
 import DatosOperacion from './DatosOperacion';
@@ -55,6 +56,16 @@ export default function RegistroJenbacherPage() {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  // La hora del formulario es fija: cuando cambia la hora, se recarga para que avance sola.
+  const horaCargada = datos?.horaActual;
+  useEffect(() => {
+    if (!horaCargada) return;
+    const reloj = setInterval(() => {
+      if (franjaActual(new Date()).hora !== horaCargada) cargar();
+    }, 30_000);
+    return () => clearInterval(reloj);
+  }, [horaCargada, cargar]);
 
   const guardado = (texto: string) => {
     setMensaje(texto);

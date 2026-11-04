@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { respuestaDeError } from '@/lib/informe/errores';
 import { formatearFechaCorta } from '@/lib/informe/fechas';
 import { CAMPOS, nombreCortoMotor } from '@/lib/planilla/campos';
-import { franjaYaEmpezo, planillaEditable } from '@/lib/planilla/franjas';
+import { franjaActual } from '@/lib/planilla/franjas';
 import { bloqueoDe, mensajeBloqueo } from '@/lib/planilla/operacion';
 import {
   biodigestores, guardarHora, motoresConEstado, operacionOpcional, registrosDePlanilla, turnoActivo
@@ -19,6 +19,9 @@ import { alertasDeUmbral, validarLectura } from '@/lib/planilla/validacion';
 
 export const dynamic = 'force-dynamic';
 
+/** Minutos después del cambio de hora en que todavía se acepta la lectura anterior. */
+const GRACIA_MS = 10 * 60 * 1000;
+
 export async function POST(request: NextRequest) {
   let cuerpo: unknown;
   try {
@@ -32,12 +35,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Revise el registro antes de guardar.', errores }, { status: 400 });
   }
 
+  // La hora es fija: la que está en curso. Se aceptan unos minutos de gracia
+  // para quien empezó a digitar antes de que cambiara la hora.
   const ahora = new Date();
-  if (!planillaEditable(lectura.fecha, ahora)) {
-    return NextResponse.json({ error: 'Solo se registran lecturas de la planilla actual o de la anterior.' }, { status: 400 });
-  }
-  if (!franjaYaEmpezo(lectura.fecha, lectura.hora, ahora)) {
-    return NextResponse.json({ error: `La hora de las ${lectura.hora} todavía no llega.` }, { status: 400 });
+  const vigentes = [franjaActual(ahora), franjaActual(new Date(ahora.getTime() - GRACIA_MS))];
+  if (!vigentes.some((f) => f.fecha === lectura.fecha && f.hora === lectura.hora)) {
+    const actual = vigentes[0];
+    return NextResponse.json(
+      { error: `Solo se registra la hora en curso (${actual.hora}). Recargue la página e intente de nuevo.` },
+      { status: 400 }
+    );
   }
 
   try {
