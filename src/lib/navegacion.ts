@@ -22,6 +22,7 @@ export const SECCIONES_MENU: SeccionMenu[] = [
       { nombre: 'Monitoreo de motores', href: '/monitoreo-motores', descripcion: 'Estado y lecturas de cada motor' },
       { nombre: 'Registro Jenbacher', href: '/registro-jenbacher', descripcion: 'Parámetros de cada motor, gas y biofiltro' },
       { nombre: 'Consumo barraje #2', href: '/consumo-barraje', descripcion: 'Consumo diario por área de la planta de beneficio' },
+      { nombre: 'Apagones', href: '/apagones', descripcion: 'Reportar cortes de energía y su restablecimiento' },
       { nombre: 'Limpiezas', href: '/limpiezas', descripcion: 'Limpiezas de equipos y áreas' },
       { nombre: 'Bitácora de eventos', href: '/bitacora-biogas', descripcion: 'Incidencias y novedades del turno' }
     ]

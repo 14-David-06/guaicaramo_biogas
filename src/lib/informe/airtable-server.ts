@@ -34,7 +34,9 @@ export const TABLAS = {
   // "Consumo KW Barraje 2": consumo del día por área de la planta de beneficio.
   consumoBarraje: process.env.CONSUMO_BARRAJE_TABLE_ID,
   // "Datos Operacion Jenbacher": horómetro, m³, kW y arranques de cada motor, una vez por día.
-  operacionJenbacher: process.env.OPERACION_JENBACHER_TABLE_ID
+  operacionJenbacher: process.env.OPERACION_JENBACHER_TABLE_ID,
+  // "Apagones": cortes de energía, con inicio, fin, origen y lo afectado.
+  apagones: process.env.APAGONES_TABLE_ID
 };
 
 export interface RegistroAirtable {
